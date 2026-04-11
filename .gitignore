@@ -20,7 +20,6 @@ build/
 .gradle/
 .kotlin/
 local.properties
-gradle/wrapper/gradle-wrapper.jar
 
 # IntelliJ / Android Studio
 .idea/
