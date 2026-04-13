@@ -45,4 +45,4 @@ dependencies {
     testImplementation(libs.androidx.test.core)
 }
 
-apply(from = "${rootDir}/gradle/publish.gradle")
+apply(from = "${rootDir}/gradle/publish.gradle.kts")
