@@ -1,11 +1,10 @@
 # aw-startup
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg)](https://android-arsenal.com/api?level=24)
+[![](https://jitpack.io/v/answufeng/aw-startup.svg)](https://jitpack.io/#answufeng/aw-startup)
 
 Android 应用启动初始化库，提供优先级分级、依赖感知的组件初始化，内置拓扑排序与循环依赖检测。
 
-## 功能特性
+## 特性
 
 - **4 级优先级**：IMMEDIATELY → NORMAL → DEFERRED → BACKGROUND
 - **拓扑排序**：同一优先级内按依赖关系排序，带循环依赖检测
@@ -35,6 +34,14 @@ Android 应用启动初始化库，提供优先级分级、依赖感知的组件
 ## 引入
 
 ```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+
+// app/build.gradle.kts
 dependencies {
     implementation("com.github.answufeng:aw-startup:1.0.0")
 }
