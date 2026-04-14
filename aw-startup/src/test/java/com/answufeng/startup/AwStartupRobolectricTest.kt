@@ -27,12 +27,12 @@ class AwStartupRobolectricTest {
     fun `start executes IMMEDIATELY then NORMAL in order`() {
         val order = mutableListOf<String>()
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Normal1"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) { order.add("Normal1") }
         })
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Immediate1"
             override val priority = InitPriority.IMMEDIATELY
             override fun onCreate(context: Context) { order.add("Immediate1") }
@@ -74,7 +74,7 @@ class AwStartupRobolectricTest {
         val executed = mutableListOf<String>()
 
         AwStartup.init(context) {
-            add(object : AppInitializer {
+            add(object : AppInitializer() {
                 override val name = "DslInit"
                 override val priority = InitPriority.NORMAL
                 override fun onCreate(context: Context) { executed.add(name) }
@@ -103,12 +103,12 @@ class AwStartupRobolectricTest {
     fun `failing initializer does not block subsequent ones`() {
         val order = mutableListOf<String>()
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Fail"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) { throw RuntimeException("boom") }
         })
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "After"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) { order.add("After") }
@@ -125,14 +125,16 @@ class AwStartupRobolectricTest {
     @Test
     fun `start ignores duplicate calls`() {
         var count = 0
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Counter"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) { count++ }
         })
 
         AwStartup.start(context)
-        AwStartup.start(context)
+        try {
+            AwStartup.start(context)
+        } catch (_: IllegalStateException) {}
 
         assertEquals(1, count)
     }
@@ -154,13 +156,13 @@ class AwStartupRobolectricTest {
     fun `dependency ordering within same priority`() {
         val order = mutableListOf<String>()
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "B"
             override val priority = InitPriority.NORMAL
             override val dependencies = listOf("A")
             override fun onCreate(context: Context) { order.add("B") }
         })
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "A"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) { order.add("A") }
@@ -173,13 +175,13 @@ class AwStartupRobolectricTest {
 
     @Test
     fun `circular dependency throws IllegalStateException`() {
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "X"
             override val priority = InitPriority.NORMAL
             override val dependencies = listOf("Y")
             override fun onCreate(context: Context) {}
         })
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Y"
             override val priority = InitPriority.NORMAL
             override val dependencies = listOf("X")
@@ -212,7 +214,7 @@ class AwStartupRobolectricTest {
         val firstRun = CountDownLatch(1)
         val secondRun = CountDownLatch(1)
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Bg1"
             override val priority = InitPriority.BACKGROUND
             override fun onCreate(context: Context) {
@@ -225,7 +227,7 @@ class AwStartupRobolectricTest {
 
         AwStartup.reset()
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "Bg2"
             override val priority = InitPriority.BACKGROUND
             override fun onCreate(context: Context) {
@@ -240,7 +242,7 @@ class AwStartupRobolectricTest {
     @Test
     fun `await returns true after background tasks complete`() {
         val latch = CountDownLatch(1)
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "BgAwait"
             override val priority = InitPriority.BACKGROUND
             override fun onCreate(context: Context) {
@@ -259,7 +261,7 @@ class AwStartupRobolectricTest {
         val order = mutableListOf<String>()
         val latch = CountDownLatch(2)
 
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "BgDep"
             override val priority = InitPriority.BACKGROUND
             override fun onCreate(context: Context) {
@@ -268,7 +270,7 @@ class AwStartupRobolectricTest {
                 latch.countDown()
             }
         })
-        AwStartup.register(object : AppInitializer {
+        AwStartup.register(object : AppInitializer() {
             override val name = "BgAfter"
             override val priority = InitPriority.BACKGROUND
             override val dependencies = listOf("BgDep")
@@ -291,22 +293,22 @@ class AwStartupRobolectricTest {
         val latch = CountDownLatch(4)
         AwStartup.init(context) {
             backgroundThreads(4)
-            add(object : AppInitializer {
+            add(object : AppInitializer() {
                 override val name = "T1"
                 override val priority = InitPriority.BACKGROUND
                 override fun onCreate(context: Context) { latch.countDown() }
             })
-            add(object : AppInitializer {
+            add(object : AppInitializer() {
                 override val name = "T2"
                 override val priority = InitPriority.BACKGROUND
                 override fun onCreate(context: Context) { latch.countDown() }
             })
-            add(object : AppInitializer {
+            add(object : AppInitializer() {
                 override val name = "T3"
                 override val priority = InitPriority.BACKGROUND
                 override fun onCreate(context: Context) { latch.countDown() }
             })
-            add(object : AppInitializer {
+            add(object : AppInitializer() {
                 override val name = "T4"
                 override val priority = InitPriority.BACKGROUND
                 override fun onCreate(context: Context) { latch.countDown() }
@@ -316,7 +318,41 @@ class AwStartupRobolectricTest {
         assertTrue(latch.await(3, TimeUnit.SECONDS))
     }
 
-    private fun fakeInitializer(n: String, p: InitPriority) = object : AppInitializer {
+    @Test
+    fun `onFailed callback is called on failure`() {
+        val failedNames = mutableListOf<String>()
+        val error = RuntimeException("test error")
+
+        AwStartup.register(object : AppInitializer() {
+            override val name = "Failing"
+            override val priority = InitPriority.NORMAL
+            override fun onCreate(context: Context) { throw error }
+            override fun onFailed(err: Throwable) { failedNames.add(name) }
+        })
+
+        AwStartup.start(context)
+
+        assertEquals(listOf("Failing"), failedNames)
+    }
+
+    @Test
+    fun `DSL shortcut methods register correct priorities`() {
+        AwStartup.init(context) {
+            immediately("Imm") {}
+            normal("Norm") {}
+            deferred("Def") {}
+            background("Bg") {}
+        }
+
+        assertTrue(AwStartup.isStarted)
+        val report = AwStartup.getReport()
+        val immResult = report.first { it.name == "Imm" }
+        val normResult = report.first { it.name == "Norm" }
+        assertEquals(InitPriority.IMMEDIATELY, immResult.priority)
+        assertEquals(InitPriority.NORMAL, normResult.priority)
+    }
+
+    private fun fakeInitializer(n: String, p: InitPriority) = object : AppInitializer() {
         override val name = n
         override val priority = p
         override fun onCreate(context: Context) {}

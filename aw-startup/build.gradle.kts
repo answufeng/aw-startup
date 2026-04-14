@@ -39,10 +39,13 @@ android {
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.annotation)
+    api(libs.coroutines.core)
+    implementation(libs.coroutines.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.coroutines.core)
 }
 
 apply(from = "${rootDir}/gradle/publish.gradle.kts")

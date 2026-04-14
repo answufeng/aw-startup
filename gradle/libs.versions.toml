@@ -8,6 +8,8 @@ constraintlayout = "2.2.0"
 annotation = "1.9.1"
 material = "1.12.0"
 
+coroutines = "1.9.0"
+
 junit = "4.13.2"
 robolectric = "4.14.1"
 androidx-test-core = "1.6.1"
@@ -18,6 +20,9 @@ appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "a
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }

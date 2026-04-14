@@ -54,12 +54,12 @@ class TopologicalSortTest {
     }
 
     @Test
-    fun `InitPriority ordinal order is correct`() {
+    fun `InitPriority entries order is correct`() {
         val priorities = InitPriority.entries
         assertEquals(4, priorities.size)
-        assertTrue(InitPriority.IMMEDIATELY.ordinal < InitPriority.NORMAL.ordinal)
-        assertTrue(InitPriority.NORMAL.ordinal < InitPriority.DEFERRED.ordinal)
-        assertTrue(InitPriority.DEFERRED.ordinal < InitPriority.BACKGROUND.ordinal)
+        assertTrue(InitPriority.IMMEDIATELY < InitPriority.NORMAL)
+        assertTrue(InitPriority.NORMAL < InitPriority.DEFERRED)
+        assertTrue(InitPriority.DEFERRED < InitPriority.BACKGROUND)
     }
 
     @Test
@@ -114,11 +114,43 @@ class TopologicalSortTest {
         assertEquals(original.name, copy.name)
     }
 
+    @Test
+    fun `InitPriority Custom can be created`() {
+        val custom = InitPriority.Custom(5)
+        assertEquals(5, custom.ordinal)
+        assertNull(custom.executor)
+    }
+
+    @Test
+    fun `InitPriority Custom with executor`() {
+        val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val custom = InitPriority.Custom(5, executor)
+        assertNotNull(custom.executor)
+        executor.shutdown()
+    }
+
+    @Test
+    fun `AppInitializer onFailed default does nothing`() {
+        val init = object : AppInitializer() {
+            override val name = "Test"
+            override val priority = InitPriority.NORMAL
+            override fun onCreate(context: Context) {}
+        }
+        init.onFailed(RuntimeException("test"))
+    }
+
+    @Test
+    fun `FailStrategy enum values`() {
+        assertEquals(2, FailStrategy.entries.size)
+        assertEquals(FailStrategy.CONTINUE, FailStrategy.valueOf("CONTINUE"))
+        assertEquals(FailStrategy.ABORT_DEPENDENTS, FailStrategy.valueOf("ABORT_DEPENDENTS"))
+    }
+
     private fun fakeInitializer(
         initName: String,
         initPriority: InitPriority,
         deps: List<String> = emptyList()
-    ): AppInitializer = object : AppInitializer {
+    ): AppInitializer = object : AppInitializer() {
         override val name = initName
         override val priority = initPriority
         override val dependencies = deps
