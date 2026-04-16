@@ -1,287 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FAFAFA">
 
-    <com.google.android.material.appbar.AppBarLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/transparent"
-        android:elevation="0dp">
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?android:attr/colorPrimary"
-            app:title="🚀 aw-startup 启动库"
-            app:titleTextColor="@android:color/white"
-            app:navigationIcon="@drawable/ic_startup" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:text="🚀 aw-startup 启动库演示"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:gravity="center"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp" />
 
-            <!-- 启动报告卡片 -->
-            <com.google.android.material.card.MaterialCardView
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="拓扑排序 · 优先级管理 · 启动报告 · 后台任务等待"
+            android:textSize="13sp"
+            android:textColor="#757575"
+            android:gravity="center"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📋 操作日志"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="#2196F3"
+            android:padding="12dp" />
+
+        <ScrollView
+            android:id="@+id/logScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:background="#FFFFFF"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/tvLog"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                android:textSize="13sp"
+                android:textColor="#333333"
+                android:lineSpacingExtra="3dp" />
+        </ScrollView>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📊 启动报告"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#424242"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="📊 启动报告"
-                        android:textColor="#673AB7"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:drawablePadding="8dp"
-                        android:drawableStart="@drawable/ic_report"
-                        android:layout_marginBottom="12dp" />
+        <Button
+            android:id="@+id/btnReport"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="查看 启动报告(耗时/优先级/状态)"
+            android:layout_marginBottom="8dp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="查看应用启动时的任务执行情况，包括耗时、优先级、状态等详细信息"
-                        android:textColor="#666666"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="16dp"
-                        android:lineSpacingExtra="4dp" />
+        <Button
+            android:id="@+id/btnAwait"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="等待 后台任务完成(3秒超时)"
+            android:layout_marginBottom="16dp" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔧 管理"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#424242"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
 
-                        <Button
-                            android:id="@+id/btnReport"
-                            style="@style/MaterialButton.Outlined"
-                            android:layout_width="0dp"
-                            android:layout_height="48dp"
-                            android:layout_weight="1"
-                            android:text="查看报告"
-                            android:layout_marginEnd="8dp" />
+        <Button
+            android:id="@+id/btnClearLog"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="🗑️ 清除日志"
+            android:layout_marginBottom="16dp" />
 
-                        <Button
-                            android:id="@+id/btnAwait"
-                            style="@style/MaterialButton.Outlined"
-                            android:layout_width="0dp"
-                            android:layout_height="48dp"
-                            android:layout_weight="1"
-                            android:text="等待任务" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 依赖关系演示卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="🔗 依赖关系"
-                        android:textColor="#673AB7"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:drawablePadding="8dp"
-                        android:drawableStart="@drawable/ic_dependency"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="演示任务之间的依赖关系，确保任务按正确的顺序执行（TaskA → TaskB → TaskC）"
-                        android:textColor="#666666"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="16dp"
-                        android:lineSpacingExtra="4dp" />
-
-                    <Button
-                        android:id="@+id/btnRegisterDependency"
-                        style="@style/MaterialButton.Outlined"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="演示依赖关系" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 优先级演示卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="🔍 优先级管理"
-                        android:textColor="#673AB7"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:drawablePadding="8dp"
-                        android:drawableStart="@drawable/ic_priority"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="演示不同优先级任务的执行顺序：CRITICAL > HIGH > NORMAL > LOW"
-                        android:textColor="#666666"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="16dp"
-                        android:lineSpacingExtra="4dp" />
-
-                    <Button
-                        android:id="@+id/btnRegisterPriority"
-                        style="@style/MaterialButton.Outlined"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="演示优先级" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 错误处理演示卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="⚠️ 错误处理"
-                        android:textColor="#673AB7"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:drawablePadding="8dp"
-                        android:drawableStart="@drawable/ic_error"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="演示任务失败时的处理策略，支持跳过失败任务继续执行其他任务"
-                        android:textColor="#666666"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="16dp"
-                        android:lineSpacingExtra="4dp" />
-
-                    <Button
-                        android:id="@+id/btnRegisterError"
-                        style="@style/MaterialButton.Outlined"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="演示错误处理" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 操作日志卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="📋 操作日志"
-                        android:textColor="#673AB7"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:drawablePadding="8dp"
-                        android:drawableStart="@drawable/ic_logs"
-                        android:layout_marginBottom="12dp" />
-
-                    <ScrollView
-                        android:id="@+id/logScrollView"
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:background="#F8F9FA"
-                        android:padding="12dp">
-
-                        <TextView
-                            android:id="@+id/tvLog"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="操作日志将显示在这里...\n点击上方按钮开始测试启动功能"
-                            android:textColor="#333333"
-                            android:textSize="13sp"
-                            android:fontFamily="monospace"
-                            android:lineSpacingExtra="4dp" />
-
-                    </ScrollView>
-
-                    <Button
-                        android:id="@+id/btnClearLog"
-                        style="@style/MaterialButton.Text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:layout_gravity="end"
-                        android:text="清除日志"
-                        android:layout_marginTop="12dp" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
-
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    </LinearLayout>
+</ScrollView>
