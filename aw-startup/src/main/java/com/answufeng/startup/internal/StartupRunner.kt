@@ -31,7 +31,7 @@ class StartupRunner(
     private val config: StartupConfig? = null
 ) {
 
-    private val failedInitializers = mutableSetOf<String>()
+    private val failedInitializers = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var syncStartTime: Long = 0L
     private var syncCostMillis: Long = 0L
