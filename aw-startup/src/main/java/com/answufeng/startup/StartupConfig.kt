@@ -3,6 +3,10 @@ package com.answufeng.startup
 import android.content.Context
 import kotlin.math.min
 
+@DslMarker
+annotation class AwStartupDsl
+
+@AwStartupDsl
 class StartupConfig {
 
     internal val initializers = mutableListOf<AppInitializer>()
