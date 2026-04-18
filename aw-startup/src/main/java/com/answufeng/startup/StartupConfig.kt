@@ -1,20 +1,16 @@
 package com.answufeng.startup
 
 import android.content.Context
-
-enum class FailStrategy {
-
-    CONTINUE,
-
-    ABORT_DEPENDENTS
-}
+import kotlin.math.min
 
 class StartupConfig {
 
     internal val initializers = mutableListOf<AppInitializer>()
     internal var resultCallback: ((InitResult) -> Unit)? = null
+    internal var progressCallback: ((completed: Int, total: Int) -> Unit)? = null
     internal var logger: Boolean = false
-    internal var backgroundThreadCount: Int = Runtime.getRuntime().availableProcessors()
+    internal var startupLogger: StartupLogger? = null
+    internal var backgroundThreadCount: Int = min(4, Runtime.getRuntime().availableProcessors())
     internal var customExecutor: java.util.concurrent.ExecutorService? = null
     internal var failStrategy: FailStrategy = FailStrategy.CONTINUE
     internal var defaultTimeoutMillis: Long = 0
@@ -28,8 +24,17 @@ class StartupConfig {
         resultCallback = callback
     }
 
+    fun onProgress(callback: (completed: Int, total: Int) -> Unit) {
+        progressCallback = callback
+    }
+
     fun logger(enabled: Boolean = true) {
         logger = enabled
+    }
+
+    fun logger(logger: StartupLogger) {
+        startupLogger = logger
+        this.logger = true
     }
 
     fun backgroundThreads(count: Int) {
@@ -57,7 +62,8 @@ class StartupConfig {
 
     fun immediately(
         name: String,
-        deps: List<String> = emptyList(),
+        vararg deps: String,
+        enabled: Boolean = true,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -65,7 +71,8 @@ class StartupConfig {
         add(object : AppInitializer() {
             override val name = name
             override val priority = InitPriority.IMMEDIATELY
-            override val dependencies = deps
+            override val dependencies = deps.toList()
+            override val enabled = enabled
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -74,7 +81,8 @@ class StartupConfig {
 
     fun normal(
         name: String,
-        deps: List<String> = emptyList(),
+        vararg deps: String,
+        enabled: Boolean = true,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -82,7 +90,8 @@ class StartupConfig {
         add(object : AppInitializer() {
             override val name = name
             override val priority = InitPriority.NORMAL
-            override val dependencies = deps
+            override val dependencies = deps.toList()
+            override val enabled = enabled
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -91,7 +100,8 @@ class StartupConfig {
 
     fun deferred(
         name: String,
-        deps: List<String> = emptyList(),
+        vararg deps: String,
+        enabled: Boolean = true,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -99,7 +109,8 @@ class StartupConfig {
         add(object : AppInitializer() {
             override val name = name
             override val priority = InitPriority.DEFERRED
-            override val dependencies = deps
+            override val dependencies = deps.toList()
+            override val enabled = enabled
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -108,7 +119,8 @@ class StartupConfig {
 
     fun background(
         name: String,
-        deps: List<String> = emptyList(),
+        vararg deps: String,
+        enabled: Boolean = true,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -116,8 +128,85 @@ class StartupConfig {
         add(object : AppInitializer() {
             override val name = name
             override val priority = InitPriority.BACKGROUND
-            override val dependencies = deps
+            override val dependencies = deps.toList()
+            override val enabled = enabled
             override fun onCreate(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
+    fun suspendImmediately(
+        name: String,
+        vararg deps: String,
+        enabled: Boolean = true,
+        onCompleted: () -> Unit = {},
+        onFailed: (Throwable) -> Unit = {},
+        init: suspend (Context) -> Unit
+    ) {
+        add(object : SuspendAppInitializer() {
+            override val name = name
+            override val priority = InitPriority.IMMEDIATELY
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override suspend fun onCreateSuspend(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
+    fun suspendNormal(
+        name: String,
+        vararg deps: String,
+        enabled: Boolean = true,
+        onCompleted: () -> Unit = {},
+        onFailed: (Throwable) -> Unit = {},
+        init: suspend (Context) -> Unit
+    ) {
+        add(object : SuspendAppInitializer() {
+            override val name = name
+            override val priority = InitPriority.NORMAL
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override suspend fun onCreateSuspend(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
+    fun suspendDeferred(
+        name: String,
+        vararg deps: String,
+        enabled: Boolean = true,
+        onCompleted: () -> Unit = {},
+        onFailed: (Throwable) -> Unit = {},
+        init: suspend (Context) -> Unit
+    ) {
+        add(object : SuspendAppInitializer() {
+            override val name = name
+            override val priority = InitPriority.DEFERRED
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override suspend fun onCreateSuspend(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
+    fun suspendBackground(
+        name: String,
+        vararg deps: String,
+        enabled: Boolean = true,
+        onCompleted: () -> Unit = {},
+        onFailed: (Throwable) -> Unit = {},
+        init: suspend (Context) -> Unit
+    ) {
+        add(object : SuspendAppInitializer() {
+            override val name = name
+            override val priority = InitPriority.BACKGROUND
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
         })

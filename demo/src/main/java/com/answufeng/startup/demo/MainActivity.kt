@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnReport).setOnClickListener { showReport() }
         findViewById<Button>(R.id.btnAwait).setOnClickListener { awaitBackground() }
         findViewById<Button>(R.id.btnIsInitialized).setOnClickListener { checkInitialized() }
+        findViewById<Button>(R.id.btnStore).setOnClickListener { showStore() }
         findViewById<Button>(R.id.btnClearLog).setOnClickListener { clearLog() }
 
         log("✅ 应用启动完成")
@@ -72,12 +73,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkInitialized() {
         log("🔍 初始化器状态查询:")
-        val names = listOf("Logger", "Network", "Analytics", "CacheCleaner", "DbPreload", "Firebase", "Database")
+        val names = listOf("Logger", "Network", "Config", "Analytics", "CacheCleaner", "DbPreload", "Firebase", "Database")
         names.forEach { name ->
             val initialized = AwStartup.isInitialized(name)
             val status = if (initialized) "✅ 已完成" else "⏳ 未完成"
             log("  $name: $status")
         }
+        log("")
+    }
+
+    private fun showStore() {
+        val store = AwStartup.getStore()
+        log("📦 StartupStore 数据:")
+        log("  networkReady: ${store.get<Boolean>("networkReady")}")
+        log("  dbPreloaded: ${store.get<Boolean>("dbPreloaded")}")
+        log("  database: ${store.get<String>("database")}")
         log("")
     }
 }

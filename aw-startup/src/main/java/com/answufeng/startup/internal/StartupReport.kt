@@ -1,23 +1,34 @@
 package com.answufeng.startup.internal
 
-import android.util.Log
 import com.answufeng.startup.InitResult
+import com.answufeng.startup.StartupLogger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class StartupReport(
-    private val resultsRef: MutableList<InitResult>,
-    private val lock: Any,
-    val syncCostMillis: Long,
-    private val backgroundLatch: CountDownLatch?,
-    private val completedNamesRef: Set<String>
+    private val logger: StartupLogger = StartupLogger.DEFAULT
 ) {
 
-    val results: List<InitResult>
-        get() = synchronized(lock) { resultsRef.toList() }
+    private val _results = ConcurrentLinkedQueue<InitResult>()
+    private val _completedNames = ConcurrentHashMap.newKeySet<String>()
 
-    fun isInitialized(name: String): Boolean =
-        synchronized(lock) { name in completedNamesRef }
+    var syncCostMillis: Long = 0L
+        internal set
+
+    var backgroundLatch: CountDownLatch? = null
+        internal set
+
+    val results: List<InitResult>
+        get() = _results.toList()
+
+    fun isInitialized(name: String): Boolean = name in _completedNames
+
+    internal fun addResult(result: InitResult) {
+        _results.add(result)
+        _completedNames.add(result.name)
+    }
 
     fun awaitBackground() {
         backgroundLatch?.await()
@@ -35,6 +46,6 @@ class StartupReport(
             val status = if (r.success) "OK" else "FAIL: ${r.error?.message}"
             sb.append("  ${r.name} [${r.priority}] ${r.costMillis}ms $status\n")
         }
-        Log.d("AwStartup", sb.toString())
+        logger.d("AwStartup", sb.toString())
     }
 }

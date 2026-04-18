@@ -86,6 +86,13 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="查询 初始化器完成状态"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnStore"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="📦 查看 StartupStore 数据"
             android:layout_marginBottom="16dp" />
 
         <TextView
