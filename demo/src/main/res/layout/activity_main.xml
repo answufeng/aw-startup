@@ -43,7 +43,7 @@
         <ScrollView
             android:id="@+id/logScrollView"
             android:layout_width="match_parent"
-            android:layout_height="160dp"
+            android:layout_height="180dp"
             android:background="#FFFFFF"
             android:padding="12dp"
             android:layout_marginBottom="16dp">
@@ -79,6 +79,13 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="等待 后台任务完成(3秒超时)"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnIsInitialized"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="查询 初始化器完成状态"
             android:layout_marginBottom="16dp" />
 
         <TextView

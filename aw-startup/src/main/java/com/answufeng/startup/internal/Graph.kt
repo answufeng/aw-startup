@@ -3,6 +3,11 @@ package com.answufeng.startup.internal
 import com.answufeng.startup.AppInitializer
 import com.answufeng.startup.InitPriority
 
+data class PriorityGroup(
+    val priority: InitPriority,
+    val initializers: List<AppInitializer>
+)
+
 /**
  * 初始化器依赖图，负责拓扑排序和校验。
  *
@@ -16,11 +21,13 @@ class Graph(
         initializers.associateBy { it.name }
     }
 
-    private val sorted: Map<InitPriority, List<AppInitializer>> by lazy {
+    private val sortedGroups: List<PriorityGroup> by lazy {
         val allSorted = topologicalSortAll()
-        InitPriority.entries.associateWith { priority ->
-            allSorted.filter { it.priority == priority }
-        }
+        allSorted
+            .groupBy { it.priority }
+            .entries
+            .sortedBy { it.key.ordinal }
+            .map { (priority, inits) -> PriorityGroup(priority, inits) }
     }
 
     /**
@@ -38,13 +45,15 @@ class Graph(
         validateNoCircularDependencies()
     }
 
+    fun getGroups(): List<PriorityGroup> = sortedGroups
+
     /**
      * 获取指定优先级的拓扑排序结果。
      *
      * 结果按依赖顺序排列，被依赖者在前。
      */
     fun getSorted(priority: InitPriority): List<AppInitializer> =
-        sorted[priority] ?: emptyList()
+        sortedGroups.find { it.priority == priority }?.initializers ?: emptyList()
 
     private fun validateUniqueNames() {
         val seen = mutableSetOf<String>()

@@ -257,6 +257,13 @@ class AwStartupRobolectricTest {
     }
 
     @Test
+    fun `await returns true when no background tasks`() {
+        AwStartup.register(fakeInitializer("A", InitPriority.NORMAL))
+        AwStartup.start(context)
+        assertTrue(AwStartup.await(1000))
+    }
+
+    @Test
     fun `background initializer with dependency waits for dependency`() {
         val order = mutableListOf<String>()
         val latch = CountDownLatch(2)
@@ -350,6 +357,108 @@ class AwStartupRobolectricTest {
         val normResult = report.first { it.name == "Norm" }
         assertEquals(InitPriority.IMMEDIATELY, immResult.priority)
         assertEquals(InitPriority.NORMAL, normResult.priority)
+    }
+
+    @Test
+    fun `isInitialized returns true for completed initializers`() {
+        AwStartup.register(fakeInitializer("A", InitPriority.NORMAL))
+        AwStartup.start(context)
+        assertTrue(AwStartup.isInitialized("A"))
+        assertFalse(AwStartup.isInitialized("B"))
+    }
+
+    @Test
+    fun `isInitialized returns false before start`() {
+        assertFalse(AwStartup.isInitialized("A"))
+    }
+
+    @Test
+    fun `init with register combines initializers`() {
+        val executed = mutableListOf<String>()
+        AwStartup.register(object : AppInitializer() {
+            override val name = "RegInit"
+            override val priority = InitPriority.IMMEDIATELY
+            override fun onCreate(context: Context) { executed.add("RegInit") }
+        })
+        AwStartup.init(context) {
+            immediately("DslInit") { executed.add("DslInit") }
+        }
+        assertTrue(executed.contains("RegInit"))
+        assertTrue(executed.contains("DslInit"))
+    }
+
+    @Test
+    fun `ABORT_DEPENDENTS skips dependent initializers`() {
+        AwStartup.init(context) {
+            failStrategy(FailStrategy.ABORT_DEPENDENTS)
+            add(object : AppInitializer() {
+                override val name = "Parent"
+                override val priority = InitPriority.NORMAL
+                override fun onCreate(context: Context) { throw RuntimeException("fail") }
+            })
+            add(object : AppInitializer() {
+                override val name = "Child"
+                override val priority = InitPriority.NORMAL
+                override val dependencies = listOf("Parent")
+                override fun onCreate(context: Context) {}
+            })
+        }
+
+        val report = AwStartup.getReport()
+        assertFalse(report.first { it.name == "Parent" }.success)
+        val childResult = report.first { it.name == "Child" }
+        assertFalse(childResult.success)
+        assertTrue(childResult.skipped)
+    }
+
+    @Test
+    fun `DSL onCompleted and onFailed callbacks work`() {
+        val completedNames = mutableListOf<String>()
+        val failedNames = mutableListOf<String>()
+
+        AwStartup.init(context) {
+            immediately("Ok", onCompleted = { completedNames.add("Ok") }) {}
+            normal("Bad", onFailed = { failedNames.add("Bad") }) { throw RuntimeException("err") }
+        }
+        assertEquals(listOf("Ok"), completedNames)
+        assertEquals(listOf("Bad"), failedNames)
+    }
+
+    @Test
+    fun `Custom priority initializer executes`() {
+        val executed = mutableListOf<String>()
+        val customPriority = InitPriority.Custom(5)
+
+        AwStartup.register(object : AppInitializer() {
+            override val name = "CustomInit"
+            override val priority = customPriority
+            override fun onCreate(context: Context) { executed.add("CustomInit") }
+        })
+
+        AwStartup.start(context)
+        assertTrue(AwStartup.await(3000))
+        assertTrue(executed.contains("CustomInit"))
+    }
+
+    @Test
+    fun `retry mechanism works on failure`() {
+        var attemptCount = 0
+
+        AwStartup.register(object : AppInitializer() {
+            override val name = "RetryInit"
+            override val priority = InitPriority.NORMAL
+            override val retryCount = 2
+            override fun onCreate(context: Context) {
+                attemptCount++
+                if (attemptCount < 3) throw RuntimeException("attempt $attemptCount")
+            }
+        })
+
+        AwStartup.start(context)
+
+        val report = AwStartup.getReport()
+        assertTrue(report.first { it.name == "RetryInit" }.success)
+        assertEquals(3, attemptCount)
     }
 
     private fun fakeInitializer(n: String, p: InitPriority) = object : AppInitializer() {

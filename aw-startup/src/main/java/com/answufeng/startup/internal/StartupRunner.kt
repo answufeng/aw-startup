@@ -10,25 +10,26 @@ import com.answufeng.startup.InitPriority
 import com.answufeng.startup.InitResult
 import com.answufeng.startup.StartupConfig
 import com.answufeng.startup.SuspendAppInitializer
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.runBlocking
 
-/**
- * 启动执行器，负责按优先级分组执行初始化器。
- *
- * - IMMEDIATELY / NORMAL：主线程同步执行
- * - DEFERRED：通过 [MessageQueue.IdleHandler] 在主线程空闲时逐个执行
- * - BACKGROUND：后台线程池并发执行，使用 [CountDownLatch] 保证依赖顺序
- */
 class StartupRunner(
     private val graph: Graph,
     private val context: Context,
     private val config: StartupConfig? = null
 ) {
 
+    private val lock = Any()
     private val results = mutableListOf<InitResult>()
+    private val completedNames = mutableSetOf<String>()
     private val failedInitializers = mutableSetOf<String>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var syncStartTime: Long = 0L
@@ -39,78 +40,119 @@ class StartupRunner(
 
     private val ownsExecutor: Boolean = config?.customExecutor == null
     private val executor: ExecutorService = config?.customExecutor
-        ?: Executors.newFixedThreadPool(backgroundThreadCount)
+        ?: ThreadPoolExecutor(
+            backgroundThreadCount, backgroundThreadCount,
+            0L, TimeUnit.MILLISECONDS,
+            ArrayBlockingQueue(128),
+            StartupThreadFactory(),
+            ThreadPoolExecutor.CallerRunsPolicy()
+        )
 
-    private val backgroundLatch: CountDownLatch by lazy {
-        val bgCount = graph.getSorted(InitPriority.BACKGROUND).size
-        CountDownLatch(bgCount.coerceAtLeast(1))
+    private var concurrentLatch: CountDownLatch? = null
+
+    private enum class ExecStrategy { SYNC, IDLE, CONCURRENT }
+
+    private fun execStrategy(priority: InitPriority): ExecStrategy = when (priority) {
+        InitPriority.IMMEDIATELY, InitPriority.NORMAL -> ExecStrategy.SYNC
+        InitPriority.DEFERRED -> ExecStrategy.IDLE
+        InitPriority.BACKGROUND -> ExecStrategy.CONCURRENT
+        is InitPriority.Custom -> when {
+            priority.executor != null -> ExecStrategy.CONCURRENT
+            priority.ordinal <= InitPriority.NORMAL.ordinal -> ExecStrategy.SYNC
+            priority.ordinal <= InitPriority.DEFERRED.ordinal -> ExecStrategy.IDLE
+            else -> ExecStrategy.CONCURRENT
+        }
     }
 
-    /**
-     * 执行所有初始化器，返回启动报告。
-     *
-     * 执行顺序：IMMEDIATELY → NORMAL（同步）→ DEFERRED（IdleHandler）→ BACKGROUND（线程池）
-     */
     fun run(): StartupReport {
         syncStartTime = System.currentTimeMillis()
 
-        runGroup(InitPriority.IMMEDIATELY)
-        runGroup(InitPriority.NORMAL)
+        val groups = graph.getGroups()
+        val idleInitializers = mutableListOf<AppInitializer>()
+        val concurrentInitializers = mutableListOf<AppInitializer>()
+
+        for (group in groups) {
+            when (execStrategy(group.priority)) {
+                ExecStrategy.SYNC -> runSyncGroup(group.initializers)
+                ExecStrategy.IDLE -> idleInitializers.addAll(group.initializers)
+                ExecStrategy.CONCURRENT -> concurrentInitializers.addAll(group.initializers)
+            }
+        }
 
         syncCostMillis = System.currentTimeMillis() - syncStartTime
 
-        scheduleDeferred()
-        submitBackground()
+        if (idleInitializers.isNotEmpty()) {
+            scheduleIdle(idleInitializers)
+        }
 
-        return StartupReport(results.toList(), syncCostMillis, backgroundLatch)
+        if (concurrentInitializers.isNotEmpty()) {
+            submitConcurrent(concurrentInitializers)
+        }
+
+        return StartupReport(results, lock, syncCostMillis, concurrentLatch, completedNames)
     }
 
-    /**
-     * 关闭线程池（仅关闭自创建的线程池）。
-     */
     fun shutdown() {
         if (ownsExecutor) {
             executor.shutdown()
         }
     }
 
-    private fun runGroup(priority: InitPriority) {
-        val sorted = graph.getSorted(priority)
-        for (init in sorted) {
+    private fun runSyncGroup(initializers: List<AppInitializer>) {
+        for (init in initializers) {
             executeInitializer(init)
         }
     }
 
-    private fun scheduleDeferred() {
-        val deferred = graph.getSorted(InitPriority.DEFERRED)
-        if (deferred.isEmpty()) return
-
+    private fun scheduleIdle(initializers: List<AppInitializer>) {
         val queue = Looper.myLooper()!!.queue
-        val iterator = deferred.iterator()
+        val remaining = java.util.concurrent.atomic.AtomicInteger(initializers.size)
+        val iterator = initializers.iterator()
 
         val idleHandler = object : MessageQueue.IdleHandler {
             override fun queueIdle(): Boolean {
-                if (iterator.hasNext()) {
+                while (iterator.hasNext()) {
                     executeInitializer(iterator.next())
+                    remaining.decrementAndGet()
+                    if (!iterator.hasNext()) return false
                 }
-                return iterator.hasNext()
+                return false
             }
         }
         queue.addIdleHandler(idleHandler)
+
+        val deferredTimeout = config?.deferredTimeoutMillis ?: 0L
+        if (deferredTimeout > 0) {
+            mainHandler.postDelayed({
+                val left = remaining.get()
+                if (left > 0) {
+                    android.util.Log.w(
+                        "AwStartup",
+                        "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
+                    )
+                    queue.removeIdleHandler(idleHandler)
+                    while (iterator.hasNext()) {
+                        executeInitializer(iterator.next())
+                        remaining.decrementAndGet()
+                    }
+                }
+            }, deferredTimeout)
+        }
     }
 
-    private fun submitBackground() {
-        val background = graph.getSorted(InitPriority.BACKGROUND)
-        if (background.isEmpty()) return
+    private fun submitConcurrent(initializers: List<AppInitializer>) {
+        val latch = CountDownLatch(initializers.size)
+        concurrentLatch = latch
 
         val latchMap = mutableMapOf<String, CountDownLatch>()
-        for (init in background) {
+        for (init in initializers) {
             latchMap[init.name] = CountDownLatch(1)
         }
 
-        for (init in background) {
+        for (init in initializers) {
             val customExec = (init.priority as? InitPriority.Custom)?.executor
-            val targetExecutor: ExecutorService = if (customExec is ExecutorService) customExec else executor
+            val targetExecutor: ExecutorService =
+                if (customExec is ExecutorService) customExec else executor
 
             targetExecutor.submit {
                 try {
@@ -120,46 +162,93 @@ class StartupRunner(
                     executeInitializer(init)
                 } finally {
                     latchMap[init.name]?.countDown()
-                    backgroundLatch.countDown()
+                    latch.countDown()
                 }
             }
         }
     }
 
     private fun executeInitializer(init: AppInitializer) {
-        if (config?.failStrategy == FailStrategy.ABORT_DEPENDENTS) {
-            val hasFailedDep = init.dependencies.any { it in failedInitializers }
-            if (hasFailedDep) {
-                val r = InitResult(
-                    init.name, init.priority, 0, false,
-                    IllegalStateException("依赖的初始化器失败，跳过执行")
-                )
-                synchronized(results) { results.add(r) }
-                synchronized(failedInitializers) { failedInitializers.add(init.name) }
-                notifyResult(r)
-                return
+        val effectiveFailStrategy =
+            init.failStrategy ?: config?.failStrategy ?: FailStrategy.CONTINUE
+
+        if (effectiveFailStrategy == FailStrategy.ABORT_DEPENDENTS) {
+            synchronized(lock) {
+                val hasFailedDep = init.dependencies.any { it in failedInitializers }
+                if (hasFailedDep) {
+                    val r = InitResult(
+                        init.name, init.priority, 0, false,
+                        IllegalStateException("依赖的初始化器失败，跳过执行"),
+                        skipped = true
+                    )
+                    results.add(r)
+                    failedInitializers.add(init.name)
+                    notifyResult(r)
+                    return
+                }
             }
         }
 
+        val effectiveTimeout = if (init.timeoutMillis > 0) init.timeoutMillis
+        else if (config?.defaultTimeoutMillis ?: 0 > 0) config!!.defaultTimeoutMillis
+        else 0L
+
+        val maxRetries = init.retryCount
+        var lastError: Exception? = null
         val start = System.currentTimeMillis()
-        try {
-            if (init is SuspendAppInitializer) {
-                runBlocking { init.onCreateSuspend(context) }
-            } else {
-                init.onCreate(context)
+
+        for (attempt in 0..maxRetries) {
+            try {
+                if (effectiveTimeout > 0 && execStrategy(init.priority) == ExecStrategy.CONCURRENT) {
+                    val future: Future<*> = executor.submit {
+                        doExecute(init)
+                    }
+                    try {
+                        future.get(effectiveTimeout, TimeUnit.MILLISECONDS)
+                    } catch (e: TimeoutException) {
+                        future.cancel(true)
+                        throw TimeoutException(
+                            "初始化器 ${init.name} 执行超时（${effectiveTimeout}ms）"
+                        )
+                    }
+                } else {
+                    doExecute(init)
+                }
+                val cost = System.currentTimeMillis() - start
+                val r = InitResult(init.name, init.priority, cost, true)
+                synchronized(lock) {
+                    results.add(r)
+                    completedNames.add(init.name)
+                }
+                notifyResult(r)
+                try { init.onCompleted() } catch (_: Exception) {}
+                return
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < maxRetries) {
+                    android.util.Log.w(
+                        "AwStartup",
+                        "初始化器 ${init.name} 第${attempt + 1}次执行失败，准备重试"
+                    )
+                }
             }
-            val cost = System.currentTimeMillis() - start
-            val r = InitResult(init.name, init.priority, cost, true)
-            synchronized(results) { results.add(r) }
-            notifyResult(r)
-            try { init.onCompleted() } catch (_: Exception) {}
-        } catch (e: Exception) {
-            val cost = System.currentTimeMillis() - start
-            val r = InitResult(init.name, init.priority, cost, false, e)
-            synchronized(results) { results.add(r) }
-            synchronized(failedInitializers) { failedInitializers.add(init.name) }
-            notifyResult(r)
-            try { init.onFailed(e) } catch (_: Exception) {}
+        }
+
+        val cost = System.currentTimeMillis() - start
+        val r = InitResult(init.name, init.priority, cost, false, lastError)
+        synchronized(lock) {
+            results.add(r)
+            failedInitializers.add(init.name)
+        }
+        notifyResult(r)
+        try { init.onFailed(lastError ?: RuntimeException("Unknown error")) } catch (_: Exception) {}
+    }
+
+    private fun doExecute(init: AppInitializer) {
+        if (init is SuspendAppInitializer) {
+            runBlocking { init.onCreateSuspend(context) }
+        } else {
+            init.onCreate(context)
         }
     }
 
@@ -169,6 +258,13 @@ class StartupRunner(
             callback(result)
         } else {
             mainHandler.post { callback(result) }
+        }
+    }
+
+    internal class StartupThreadFactory : ThreadFactory {
+        private val counter = AtomicInteger(0)
+        override fun newThread(r: Runnable): Thread {
+            return Thread(r, "aw-startup-bg-${counter.incrementAndGet()}")
         }
     }
 }

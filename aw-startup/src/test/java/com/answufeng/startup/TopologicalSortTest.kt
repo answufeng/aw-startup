@@ -43,6 +43,7 @@ class TopologicalSortTest {
         assertEquals(42L, result.costMillis)
         assertTrue(result.success)
         assertNull(result.error)
+        assertFalse(result.skipped)
     }
 
     @Test
@@ -51,6 +52,17 @@ class TopologicalSortTest {
         val result = InitResult("fail", InitPriority.NORMAL, 10L, false, ex)
         assertFalse(result.success)
         assertSame(ex, result.error)
+    }
+
+    @Test
+    fun `InitResult skipped state`() {
+        val result = InitResult(
+            "skip", InitPriority.NORMAL, 0L, false,
+            IllegalStateException("dep failed"),
+            skipped = true
+        )
+        assertFalse(result.success)
+        assertTrue(result.skipped)
     }
 
     @Test
@@ -66,6 +78,24 @@ class TopologicalSortTest {
     fun `AppInitializer default dependencies is empty`() {
         val init = fakeInitializer("X", InitPriority.NORMAL)
         assertTrue(init.dependencies.isEmpty())
+    }
+
+    @Test
+    fun `AppInitializer default failStrategy is null`() {
+        val init = fakeInitializer("X", InitPriority.NORMAL)
+        assertNull(init.failStrategy)
+    }
+
+    @Test
+    fun `AppInitializer default timeoutMillis is 0`() {
+        val init = fakeInitializer("X", InitPriority.NORMAL)
+        assertEquals(0L, init.timeoutMillis)
+    }
+
+    @Test
+    fun `AppInitializer default retryCount is 0`() {
+        val init = fakeInitializer("X", InitPriority.NORMAL)
+        assertEquals(0, init.retryCount)
     }
 
     @Test
@@ -94,6 +124,28 @@ class TopologicalSortTest {
             fail("Expected IllegalArgumentException")
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message!!.contains("大于 0"))
+        }
+    }
+
+    @Test
+    fun `StartupConfig timeout validates non-negative`() {
+        val config = StartupConfig()
+        try {
+            config.timeout(-1)
+            fail("Expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("不能为负数"))
+        }
+    }
+
+    @Test
+    fun `StartupConfig deferredTimeout validates non-negative`() {
+        val config = StartupConfig()
+        try {
+            config.deferredTimeout(-1)
+            fail("Expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("不能为负数"))
         }
     }
 

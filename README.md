@@ -11,15 +11,25 @@ Android 应用启动初始化库，提供优先级分级、依赖感知的组件
 - **拓扑排序**：同一优先级内按依赖关系排序，带循环依赖检测
 - **后台线程池**：BACKGROUND 优先级使用 CountDownLatch 保证依赖顺序
 - **空闲执行**：DEFERRED 优先级通过 IdleHandler 延迟到主线程空闲时执行
+- **DEFERRED 超时保护**：可配置超时时间，超时后强制执行
 - **错误隔离**：单个初始化器失败不影响后续初始化
 - **失败策略**：`FailStrategy.ABORT_DEPENDENTS` 自动跳过依赖失败者的任务
+- **初始化器级别失败策略**：每个初始化器可单独配置失败策略
+- **重试支持**：初始化器可配置重试次数
+- **超时控制**：初始化器可配置超时时间，超时自动取消
 - **DSL 配置**：简洁的 Kotlin DSL 方式注册初始化器（`immediately` / `normal` / `deferred` / `background`）
+- **DSL 回调**：DSL 方式支持 `onCompleted` / `onFailed` 回调
 - **结果回调**：每个初始化器完成后触发回调，回调保证在主线程执行
-- **初始化报告**：含耗时统计，可随时获取
+- **初始化报告**：含耗时统计，可随时获取（实时更新）
+- **状态查询**：`isInitialized(name)` 便捷查询初始化器是否已完成
 - **可配置线程数**：支持自定义后台线程池大小或自定义 ExecutorService
+- **有界线程池**：使用有界队列 + CallerRunsPolicy，防止 OOM
+- **线程命名**：后台线程命名为 `aw-startup-bg-{N}`，便于调试
 - **await 支持**：可等待所有后台任务完成，支持超时
 - **协程兼容**：`SuspendAppInitializer` 支持 `suspend` 初始化逻辑
+- **主进程判断**：`mainProcessOnly` 参数自动跳过子进程初始化
 - **onFailed 回调**：初始化器可自行处理失败（降级/重试）
+- **跳过状态**：`InitResult.skipped` 区分失败和跳过
 
 ## 与 AndroidX Startup 对比
 
@@ -37,6 +47,11 @@ Android 应用启动初始化库，提供优先级分级、依赖感知的组件
 | 等待完成 | ❌ | ✅ 带超时 |
 | 协程兼容 | ❌ | ✅ |
 | 自定义执行器 | ❌ | ✅ |
+| 重试支持 | ❌ | ✅ |
+| 超时控制 | ❌ | ✅ |
+| 主进程判断 | ❌ | ✅ |
+| 状态查询 | ❌ | ✅ |
+| DEFERRED 超时保护 | ❌ | ✅ |
 
 ## 引入
 
@@ -50,7 +65,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.answufeng:aw-startup:1.0.0")
+    implementation("com.github.answufeng:aw-startup:1.1.0")
 }
 ```
 
@@ -62,7 +77,7 @@ dependencies {
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        AwStartup.init(this) {
+        AwStartup.init(this, mainProcessOnly = true) {
             immediately("Logger") { AwLogger.init() }
             normal("Network", deps = listOf("Logger")) { AwNet.init(it) }
             deferred("Analytics", deps = listOf("Network")) { AwAnalytics.init(it) }
@@ -92,6 +107,8 @@ class NetworkInit : AppInitializer() {
     override val name = "Network"
     override val priority = InitPriority.NORMAL
     override val dependencies = listOf("Logger")
+    override val retryCount = 2
+    override val timeoutMillis = 5000
     override fun onCreate(context: Context) {
         AwNet.init(context)
     }
@@ -136,6 +153,13 @@ class DbPreloadInit : AppInitializer() {
 }
 ```
 
+Custom 优先级的执行策略：
+- 若提供 `executor`，使用自定义执行器并发执行
+- 若未提供 `executor`，根据 `ordinal` 决定：
+  - `ordinal <= 1`（NORMAL 及以下）：主线程同步执行
+  - `ordinal <= 2`（DEFERRED）：IdleHandler 延迟执行
+  - `ordinal > 2`（BACKGROUND 及以上）：后台线程池并发执行
+
 ### 5. 协程初始化器
 
 ```kotlin
@@ -153,25 +177,72 @@ class DbInit : SuspendAppInitializer() {
 
 ```kotlin
 AwStartup.init(this) {
-    // 默认 CONTINUE：单个失败不影响后续
-    // ABORT_DEPENDENTS：依赖失败者的任务自动跳过
+    // 全局策略
     failStrategy(FailStrategy.ABORT_DEPENDENTS)
     immediately("Config") { loadConfig() }
     normal("Service", deps = listOf("Config")) { initService() }
 }
+
+// 或初始化器级别策略
+class ServiceInit : AppInitializer() {
+    override val name = "Service"
+    override val priority = InitPriority.NORMAL
+    override val dependencies = listOf("Config")
+    override val failStrategy = FailStrategy.ABORT_DEPENDENTS
+    override fun onCreate(context: Context) { initService() }
+}
 ```
 
-### 7. 查看启动报告
+### 7. 重试与超时
+
+```kotlin
+// 重试：失败后自动重试
+class NetworkInit : AppInitializer() {
+    override val name = "Network"
+    override val priority = InitPriority.NORMAL
+    override val retryCount = 2  // 最多重试2次（共执行3次）
+    override fun onCreate(context: Context) { AwNet.init(context) }
+}
+
+// 超时：单个初始化器超时
+class SlowInit : AppInitializer() {
+    override val name = "Slow"
+    override val priority = InitPriority.BACKGROUND
+    override val timeoutMillis = 5000  // 5秒超时
+    override fun onCreate(context: Context) { slowOperation() }
+}
+
+// 全局超时配置
+AwStartup.init(this) {
+    timeout(3000)              // 全局默认超时3秒
+    deferredTimeout(5000)      // DEFERRED 任务5秒后强制执行
+}
+```
+
+### 8. 查看启动报告
 
 ```kotlin
 val report = AwStartup.getReport()
 report.forEach {
-    Log.d("Startup", "${it.name} [${it.priority}] ${it.costMillis}ms ${if (it.success) "OK" else "FAIL"}")
+    val status = when {
+        it.skipped -> "SKIPPED"
+        it.success -> "OK"
+        else -> "FAIL"
+    }
+    Log.d("Startup", "${it.name} [${it.priority}] ${it.costMillis}ms $status")
 }
 Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 ```
 
-### 8. 等待后台任务完成
+### 9. 查询初始化器状态
+
+```kotlin
+if (AwStartup.isInitialized("Network")) {
+    // 网络已初始化，可以发起请求
+}
+```
+
+### 10. 等待后台任务完成
 
 ```kotlin
 // 无限等待
@@ -181,19 +252,84 @@ AwStartup.await()
 val completed = AwStartup.await(3000)
 ```
 
-### 9. 高级配置
+### 11. 主进程判断
+
+```kotlin
+// 仅主进程初始化
+AwStartup.init(this, mainProcessOnly = true) {
+    // ...
+}
+
+// 手动判断
+if (AwStartup.isMainProcess(this)) {
+    // 主进程
+}
+```
+
+### 12. DSL 回调
+
+```kotlin
+AwStartup.init(this) {
+    immediately("Logger",
+        onCompleted = { Log.d("Startup", "Logger ready") }
+    ) { AwLogger.init() }
+
+    normal("Network",
+        deps = listOf("Logger"),
+        onFailed = { Log.e("Startup", "Network failed", it) }
+    ) { AwNet.init(it) }
+}
+```
+
+### 13. 高级配置
 
 ```kotlin
 AwStartup.init(this) {
     backgroundThreads(4)                              // 自定义线程数，默认 CPU 核心数
     executor(Executors.newFixedThreadPool(2))          // 自定义线程池
     failStrategy(FailStrategy.ABORT_DEPENDENTS)        // 失败策略
+    timeout(3000)                                     // 全局默认超时
+    deferredTimeout(5000)                             // DEFERRED 超时保护
     logger(true)                                      // 输出启动日志到 Logcat
     onResult { result ->                              // 结果回调（主线程）
         Log.d("Startup", "${result.name} ${result.costMillis}ms")
     }
 }
 ```
+
+## 架构设计
+
+### 执行流程
+
+```
+AwStartup.init/start
+    │
+    ▼
+Graph.validate()  ← 名称唯一性 / 依赖存在性 / 优先级一致性 / 无循环依赖
+    │
+    ▼
+Graph.getGroups() ← 全局拓扑排序（Kahn BFS）→ 按优先级 ordinal 分组
+    │
+    ▼
+StartupRunner.run()
+    ├── SYNC 组（IMMEDIATELY, NORMAL, Custom≤1）→ 主线程顺序执行
+    ├── IDLE 组（DEFERRED, Custom≤2）→ IdleHandler 空闲执行（可配超时保护）
+    └── CONCURRENT 组（BACKGROUND, Custom>2, Custom+executor）→ 线程池并发执行
+```
+
+### 依赖排序
+
+使用 Kahn 算法（BFS）进行全局拓扑排序，时间复杂度 O(V+E)。循环依赖检测使用 DFS + 着色法。
+
+### 线程安全
+
+- `results`、`completedNames`、`failedInitializers` 共享同一把锁
+- `StartupReport.results` 返回实时快照
+- `onResult` 回调保证在主线程执行
+
+### ProGuard
+
+库已内置 `consumer-rules.pro`，无需额外配置。keep 规则保留 `AppInitializer` 实现类及其方法，确保反射和 DSL 创建的匿名子类正常工作。
 
 ## API
 
@@ -202,13 +338,16 @@ AwStartup.init(this) {
 | 方法 | 说明 |
 |------|------|
 | `init(context, block)` | DSL 方式初始化并启动（推荐） |
+| `init(context, mainProcessOnly, block)` | DSL 方式，可指定仅主进程初始化 |
 | `register(initializer)` | 手动注册初始化器 |
 | `start(context)` | 启动初始化流程 |
-| `getReport()` | 获取初始化结果列表 |
+| `getReport()` | 获取初始化结果列表（实时快照） |
 | `getSyncCostMillis()` | 获取同步初始化耗时 |
+| `isInitialized(name)` | 查询初始化器是否已完成 |
 | `isStarted` | 是否已启动 |
 | `await()` | 无限等待所有后台任务完成 |
 | `await(timeoutMillis)` | 带超时等待后台任务完成 |
+| `isMainProcess(context)` | 判断当前是否主进程 |
 | `reset()` | 重置状态（测试用） |
 
 ### StartupConfig DSL
@@ -216,14 +355,16 @@ AwStartup.init(this) {
 | 方法 | 说明 |
 |------|------|
 | `add(initializer)` | 添加初始化器实例 |
-| `immediately(name, deps, init)` | 快捷添加 IMMEDIATELY 初始化器 |
-| `normal(name, deps, init)` | 快捷添加 NORMAL 初始化器 |
-| `deferred(name, deps, init)` | 快捷添加 DEFERRED 初始化器 |
-| `background(name, deps, init)` | 快捷添加 BACKGROUND 初始化器 |
+| `immediately(name, deps, init, onCompleted, onFailed)` | 快捷添加 IMMEDIATELY 初始化器 |
+| `normal(name, deps, init, onCompleted, onFailed)` | 快捷添加 NORMAL 初始化器 |
+| `deferred(name, deps, init, onCompleted, onFailed)` | 快捷添加 DEFERRED 初始化器 |
+| `background(name, deps, init, onCompleted, onFailed)` | 快捷添加 BACKGROUND 初始化器 |
 | `onResult(callback)` | 设置结果回调 |
 | `backgroundThreads(count)` | 设置后台线程数（默认 CPU 核心数） |
 | `executor(executorService)` | 设置自定义线程池 |
 | `failStrategy(strategy)` | 设置失败策略 |
+| `timeout(millis)` | 设置全局默认超时 |
+| `deferredTimeout(millis)` | 设置 DEFERRED 超时保护 |
 | `logger(enabled)` | 是否输出启动日志 |
 
 ### AppInitializer
@@ -233,6 +374,9 @@ AwStartup.init(this) {
 | `name` | 唯一标识，用于依赖引用和日志 |
 | `priority` | 初始化优先级 |
 | `dependencies` | 依赖的初始化器名称列表 |
+| `failStrategy` | 初始化器级别失败策略（可选，优先于全局） |
+| `timeoutMillis` | 超时时间（毫秒，0=不超时） |
+| `retryCount` | 重试次数（0=不重试） |
 | `onCreate(context)` | 执行初始化逻辑 |
 | `onCompleted()` | 初始化成功回调（可选） |
 | `onFailed(error)` | 初始化失败回调（可选） |
@@ -243,12 +387,34 @@ AwStartup.init(this) {
 |-----------|------|
 | `onCreateSuspend(context)` | 协程初始化逻辑 |
 
+### InitResult
+
+| 属性 | 说明 |
+|------|------|
+| `name` | 初始化器名称 |
+| `priority` | 执行优先级 |
+| `costMillis` | 执行耗时（毫秒） |
+| `success` | 是否执行成功 |
+| `error` | 执行失败的异常 |
+| `skipped` | 是否因依赖失败而跳过 |
+
 ### FailStrategy
 
 | 值 | 说明 |
 |----|------|
 | `CONTINUE` | 单个失败后继续执行（默认） |
 | `ABORT_DEPENDENTS` | 依赖失败者的任务跳过执行 |
+
+## 最佳实践
+
+1. **IMMEDIATELY** 仅用于最关键的初始化（崩溃收集、日志），避免耗时操作
+2. **NORMAL** 用于必须在首帧前完成的初始化（网络、图片库），控制总耗时
+3. **DEFERRED** 用于非关键初始化（统计、推送），配合 `deferredTimeout` 防止长期不执行
+4. **BACKGROUND** 用于耗时操作（缓存预热、数据库迁移），利用 `timeoutMillis` 防止卡死
+5. 使用 `mainProcessOnly = true` 避免子进程重复初始化
+6. 使用 `isInitialized()` 在业务代码中检查依赖是否就绪
+7. 使用 `retryCount` 为网络等不稳定初始化配置重试
+8. 使用初始化器级别 `failStrategy` 精细控制失败传播
 
 ## 许可证
 
