@@ -39,8 +39,8 @@ sealed class InitPriority(val ordinal: Int) : Comparable<InitPriority> {
      * @param ordinal 优先级序号，用于排序比较
      * @param executor 自定义执行器，为 null 时使用默认线程池
      */
-    class Custom(
-        ordinal: Int,
+    data class Custom(
+        override val ordinal: Int,
         val executor: java.util.concurrent.Executor? = null
     ) : InitPriority(ordinal)
 

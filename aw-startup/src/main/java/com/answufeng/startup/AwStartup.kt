@@ -35,7 +35,9 @@ object AwStartup {
 
     private val started = AtomicBoolean(false)
     private val initializers = mutableListOf<AppInitializer>()
+    @Volatile
     private var report: StartupReport? = null
+    @Volatile
     private var config: StartupConfig? = null
     private var runner: StartupRunner? = null
     private val store = StartupStore()
