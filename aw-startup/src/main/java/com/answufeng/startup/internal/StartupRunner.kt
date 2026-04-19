@@ -125,7 +125,8 @@ class StartupRunner(
     }
 
     private fun scheduleIdle(initializers: List<AppInitializer>) {
-        val queue = Looper.myLooper()!!.queue
+        val looper = Looper.myLooper() ?: throw IllegalStateException("DEFERRED 初始化必须在主线程调度")
+        val queue = looper.queue
         val index = java.util.concurrent.atomic.AtomicInteger(0)
         val size = initializers.size
 
@@ -136,28 +137,30 @@ class StartupRunner(
                     executeInitializer(initializers[i])
                     i = index.getAndIncrement()
                 }
+                mainHandler.removeCallbacks(timeoutRunnable)
                 return false
             }
         }
         queue.addIdleHandler(idleHandler)
 
         val deferredTimeout = config?.deferredTimeoutMillis ?: 0L
-        if (deferredTimeout > 0) {
-            mainHandler.postDelayed({
-                val left = size - index.get()
-                if (left > 0) {
-                    log.w(
-                        "AwStartup",
-                        "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
-                    )
-                    queue.removeIdleHandler(idleHandler)
-                    var i = index.getAndIncrement()
-                    while (i < size) {
-                        executeInitializer(initializers[i])
-                        i = index.getAndIncrement()
-                    }
+        val timeoutRunnable = Runnable {
+            val left = size - index.get()
+            if (left > 0) {
+                log.w(
+                    "AwStartup",
+                    "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
+                )
+                queue.removeIdleHandler(idleHandler)
+                var i = index.getAndIncrement()
+                while (i < size) {
+                    executeInitializer(initializers[i])
+                    i = index.getAndIncrement()
                 }
-            }, deferredTimeout)
+            }
+        }
+        if (deferredTimeout > 0) {
+            mainHandler.postDelayed(timeoutRunnable, deferredTimeout)
         }
     }
 
@@ -218,9 +221,11 @@ class StartupRunner(
             }
         }
 
-        val effectiveTimeout = if (init.timeoutMillis > 0) init.timeoutMillis
-        else if (config?.defaultTimeoutMillis ?: 0 > 0) config!!.defaultTimeoutMillis
-        else 0L
+        val effectiveTimeout = when {
+            init.timeoutMillis > 0 -> init.timeoutMillis
+            config?.defaultTimeoutMillis?.let { it > 0 } == true -> config.defaultTimeoutMillis
+            else -> 0L
+        }
 
         val maxRetries = init.retryCount
         var lastError: Exception? = null
