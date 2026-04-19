@@ -9,6 +9,7 @@ import com.answufeng.startup.internal.Graph
 import com.answufeng.startup.internal.StartupReport
 import com.answufeng.startup.internal.StartupRunner
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.min
 
 /**
  * 应用启动初始化入口。
@@ -109,7 +110,22 @@ object AwStartup {
         synchronized(initializers) {
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
             val cfg = StartupConfig().apply(block)
-            config = cfg
+            if (config == null) {
+                config = cfg
+            } else {
+                val existing = config!!
+                cfg.resultCallback?.let { existing.resultCallback = it }
+                cfg.progressCallback?.let { existing.progressCallback = it }
+                if (cfg.logger) existing.logger = cfg.logger
+                cfg.startupLogger?.let { existing.startupLogger = it }
+                if (cfg.backgroundThreadCount != min(4, Runtime.getRuntime().availableProcessors())) {
+                    existing.backgroundThreadCount = cfg.backgroundThreadCount
+                }
+                cfg.customExecutor?.let { existing.customExecutor = it }
+                if (cfg.failStrategy != FailStrategy.CONTINUE) existing.failStrategy = cfg.failStrategy
+                if (cfg.defaultTimeoutMillis > 0) existing.defaultTimeoutMillis = cfg.defaultTimeoutMillis
+                if (cfg.deferredTimeoutMillis > 0) existing.deferredTimeoutMillis = cfg.deferredTimeoutMillis
+            }
             for (init in cfg.initializers) {
                 require(initializers.none { it.name == init.name }) {
                     "初始化器名称重复：${init.name}"

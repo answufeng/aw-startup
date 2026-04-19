@@ -68,6 +68,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -77,6 +79,8 @@ class StartupConfig {
             override val priority = InitPriority.IMMEDIATELY
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -87,6 +91,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -96,6 +102,8 @@ class StartupConfig {
             override val priority = InitPriority.NORMAL
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -106,6 +114,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -115,6 +125,8 @@ class StartupConfig {
             override val priority = InitPriority.DEFERRED
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -125,6 +137,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -134,6 +148,8 @@ class StartupConfig {
             override val priority = InitPriority.BACKGROUND
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -144,6 +160,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -153,6 +171,8 @@ class StartupConfig {
             override val priority = InitPriority.IMMEDIATELY
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -163,6 +183,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -172,6 +194,8 @@ class StartupConfig {
             override val priority = InitPriority.NORMAL
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -182,6 +206,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -191,6 +217,8 @@ class StartupConfig {
             override val priority = InitPriority.DEFERRED
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -201,6 +229,8 @@ class StartupConfig {
         name: String,
         vararg deps: String,
         enabled: Boolean = true,
+        timeoutMillis: Long = 0,
+        retryCount: Int = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -210,6 +240,8 @@ class StartupConfig {
             override val priority = InitPriority.BACKGROUND
             override val dependencies = deps.toList()
             override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
