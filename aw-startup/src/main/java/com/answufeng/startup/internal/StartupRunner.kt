@@ -195,7 +195,7 @@ class StartupRunner(
     private fun executeInitializer(init: AppInitializer) {
         if (!init.enabled) {
             val r = InitResult(
-                init.name, init.priority, 0, true,
+                init.name, init.priority, 0, false,
                 skipped = true
             )
             report.addResult(r)

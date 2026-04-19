@@ -75,7 +75,12 @@ object AwStartup {
         config = cfg
         synchronized(initializers) {
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
-            initializers.addAll(cfg.initializers)
+            for (init in cfg.initializers) {
+                require(initializers.none { it.name == init.name }) {
+                    "初始化器名称重复：${init.name}"
+                }
+                initializers.add(init)
+            }
         }
         start(context)
     }
