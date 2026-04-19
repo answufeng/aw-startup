@@ -17,7 +17,7 @@ annotation class AwStartupDsl
  * AwStartup.init(this) {
  *     // 全局配置
  *     logger(true)
- *     failStrategy(FailStrategy.ABORT)
+ *     failStrategy(FailStrategy.ABORT_DEPENDENTS)
  *     timeout(5000)
  *     backgroundThreads(2)
  *
