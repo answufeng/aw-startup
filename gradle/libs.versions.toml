@@ -1,6 +1,7 @@
 [versions]
 agp = "8.2.2"
 kotlin = "2.0.21"
+ksp = "2.0.21-1.0.28"
 
 core-ktx = "1.15.0"
 appcompat = "1.7.0"
@@ -32,3 +33,4 @@ androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref =
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
