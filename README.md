@@ -561,3 +561,5 @@ A: 无超时的 `await()` 可能永久阻塞线程。建议使用 `await(timeout
 ## 许可证
 
 Apache License 2.0，详见 [LICENSE](LICENSE)。
+
+# Last updated: 2026年 4月 21日
