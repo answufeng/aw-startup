@@ -4,13 +4,13 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.MessageQueue
-import com.answufeng.startup.AppInitializer
+import com.answufeng.startup.StartupInitializer
 import com.answufeng.startup.FailStrategy
 import com.answufeng.startup.InitPriority
 import com.answufeng.startup.InitResult
 import com.answufeng.startup.StartupConfig
 import com.answufeng.startup.StartupLogger
-import com.answufeng.startup.SuspendAppInitializer
+import com.answufeng.startup.SuspendInitializer
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
@@ -25,6 +25,14 @@ import kotlin.math.min
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
+/**
+ * 初始化器执行器，负责按优先级和依赖关系执行初始化任务。
+ *
+ * 执行策略：
+ * - SYNC（IMMEDIATELY/NORMAL）：主线程顺序执行
+ * - IDLE（DEFERRED）：IdleHandler 延迟执行
+ * - CONCURRENT（BACKGROUND/Custom+executor）：线程池并发执行
+ */
 class StartupRunner(
     private val graph: Graph,
     private val context: Context,
@@ -75,8 +83,8 @@ class StartupRunner(
         report = StartupReport(log)
 
         val groups = graph.getGroups()
-        val idleInitializers = mutableListOf<AppInitializer>()
-        val concurrentInitializers = mutableListOf<AppInitializer>()
+        val idleInitializers = mutableListOf<StartupInitializer>()
+        val concurrentInitializers = mutableListOf<StartupInitializer>()
 
         // SYNC groups are executed sequentially on the calling thread (main thread).
         // This guarantees that all SYNC initializers (IMMEDIATELY, NORMAL) are completed
@@ -118,13 +126,13 @@ class StartupRunner(
         }
     }
 
-    private fun runSyncGroup(initializers: List<AppInitializer>) {
+    private fun runSyncGroup(initializers: List<StartupInitializer>) {
         for (init in initializers) {
             executeInitializer(init)
         }
     }
 
-    private fun scheduleIdle(initializers: List<AppInitializer>) {
+    private fun scheduleIdle(initializers: List<StartupInitializer>) {
         val looper = Looper.myLooper() ?: throw IllegalStateException("DEFERRED 初始化必须在主线程调度")
         val queue = looper.queue
         val index = java.util.concurrent.atomic.AtomicInteger(0)
@@ -164,7 +172,7 @@ class StartupRunner(
         }
     }
 
-    private fun submitConcurrent(initializers: List<AppInitializer>) {
+    private fun submitConcurrent(initializers: List<StartupInitializer>) {
         val latch = CountDownLatch(initializers.size)
         concurrentLatch = latch
 
@@ -192,7 +200,7 @@ class StartupRunner(
         }
     }
 
-    private fun executeInitializer(init: AppInitializer) {
+    private fun executeInitializer(init: StartupInitializer) {
         if (!init.enabled) {
             val r = InitResult(
                 init.name, init.priority, 0, false,
@@ -235,7 +243,7 @@ class StartupRunner(
             try {
                 val strategy = execStrategy(init.priority)
                 if (effectiveTimeout > 0 && strategy == ExecStrategy.CONCURRENT) {
-                    if (init is SuspendAppInitializer) {
+                    if (init is SuspendInitializer) {
                         doExecute(init, effectiveTimeout)
                     } else {
                         val future: Future<*> = executor.submit {
@@ -250,7 +258,7 @@ class StartupRunner(
                             )
                         }
                     }
-                } else if (effectiveTimeout > 0 && init is SuspendAppInitializer) {
+                } else if (effectiveTimeout > 0 && init is SuspendInitializer) {
                     doExecute(init, effectiveTimeout)
                 } else {
                     doExecute(init)
@@ -286,8 +294,8 @@ class StartupRunner(
         try { init.onFailed(lastError ?: RuntimeException("Unknown error")) } catch (_: Exception) {}
     }
 
-    private fun doExecute(init: AppInitializer, timeoutMillis: Long = 0) {
-        if (init is SuspendAppInitializer) {
+    private fun doExecute(init: StartupInitializer, timeoutMillis: Long = 0) {
+        if (init is SuspendInitializer) {
             runBlocking {
                 if (timeoutMillis > 0) {
                     withTimeout(timeoutMillis) { init.onCreateSuspend(context) }

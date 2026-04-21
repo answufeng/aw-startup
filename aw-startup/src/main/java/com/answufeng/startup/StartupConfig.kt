@@ -3,6 +3,14 @@ package com.answufeng.startup
 import android.content.Context
 import kotlin.math.min
 
+/**
+ * DSL 标记注解，用于限定 [StartupConfig] DSL 的作用域。
+ *
+ * 该注解确保 DSL 函数只能在 [StartupConfig] 的 lambda 块内调用，
+ * 避免 DSL 方法被误用在其他上下文中。
+ *
+ * @see StartupConfig
+ */
 @DslMarker
 annotation class AwStartupDsl
 
@@ -23,7 +31,7 @@ annotation class AwStartupDsl
  *
  *     // 同步初始化（主线程，按优先级顺序执行）
  *     immediately("Logger") { AwLogger.init() }
- *     normal("Network", deps = arrayOf("Logger")) { AwNet.init(it) }
+ *     normal("Network", "Logger") { AwNet.init(it) }
  *     deferred("Analytics") { AwAnalytics.init(it) }
  *
  *     // 异步初始化（后台线程池执行）
@@ -40,12 +48,12 @@ annotation class AwStartupDsl
  *
  * @see AwStartup.init
  * @see AwStartup.register
- * @see AppInitializer
+ * @see StartupInitializer
  */
 @AwStartupDsl
 class StartupConfig {
 
-    internal val initializers = mutableListOf<AppInitializer>()
+    internal val initializers = mutableListOf<StartupInitializer>()
     internal var resultCallback: ((InitResult) -> Unit)? = null
     internal var progressCallback: ((completed: Int, total: Int) -> Unit)? = null
     internal var logger: Boolean = false
@@ -61,7 +69,7 @@ class StartupConfig {
      *
      * @param initializer 初始化器实例
      */
-    fun add(initializer: AppInitializer) {
+    fun add(initializer: StartupInitializer) {
         initializers.add(initializer)
     }
 
@@ -125,7 +133,7 @@ class StartupConfig {
     }
 
     /**
-     * 设置全局失败策略。可被单个初始化器的 [AppInitializer.failStrategy] 覆盖。
+     * 设置全局失败策略。可被单个初始化器的 [StartupInitializer.failStrategy] 覆盖。
      *
      * @param strategy 失败策略，默认 [FailStrategy.CONTINUE]
      */
@@ -136,7 +144,7 @@ class StartupConfig {
     /**
      * 设置全局默认超时时间（毫秒）。0 表示不超时。
      *
-     * 作用于未单独设置 [AppInitializer.timeoutMillis] 的初始化器。
+     * 作用于未单独设置 [StartupInitializer.timeoutMillis] 的初始化器。
      *
      * @param millis 超时时间（毫秒），不能为负数
      * @throws IllegalArgumentException 如果 millis < 0
@@ -183,7 +191,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : AppInitializer() {
+        add(object : StartupInitializer() {
             override val name = name
             override val priority = InitPriority.IMMEDIATELY
             override val dependencies = deps.toList()
@@ -220,7 +228,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : AppInitializer() {
+        add(object : StartupInitializer() {
             override val name = name
             override val priority = InitPriority.NORMAL
             override val dependencies = deps.toList()
@@ -257,7 +265,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : AppInitializer() {
+        add(object : StartupInitializer() {
             override val name = name
             override val priority = InitPriority.DEFERRED
             override val dependencies = deps.toList()
@@ -294,7 +302,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : AppInitializer() {
+        add(object : StartupInitializer() {
             override val name = name
             override val priority = InitPriority.BACKGROUND
             override val dependencies = deps.toList()
@@ -329,7 +337,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendAppInitializer() {
+        add(object : SuspendStartupInitializer() {
             override val name = name
             override val priority = InitPriority.IMMEDIATELY
             override val dependencies = deps.toList()
@@ -364,7 +372,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendAppInitializer() {
+        add(object : SuspendStartupInitializer() {
             override val name = name
             override val priority = InitPriority.NORMAL
             override val dependencies = deps.toList()
@@ -399,7 +407,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendAppInitializer() {
+        add(object : SuspendStartupInitializer() {
             override val name = name
             override val priority = InitPriority.DEFERRED
             override val dependencies = deps.toList()
@@ -434,7 +442,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendAppInitializer() {
+        add(object : SuspendStartupInitializer() {
             override val name = name
             override val priority = InitPriority.BACKGROUND
             override val dependencies = deps.toList()

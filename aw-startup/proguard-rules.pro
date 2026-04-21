@@ -1,10 +1,9 @@
-
 # aw-startup ProGuard Rules
-# 此文件用于库自身的 release 构建混淆规则
-# Consumer-facing rules（供使用者混淆时使用）位于 consumer-rules.pro
+# This file is used for the library's own release builds.
+# Consumer-facing rules are located in consumer-rules.pro
 
 # ===========================================================
-# 保留 Kotlin 元数据和注解
+# Keep Kotlin metadata and annotations
 # ===========================================================
 
 -keepattributes *Annotation*
@@ -17,7 +16,7 @@
 -keep class kotlin.Metadata { *; }
 
 # ===========================================================
-# 保留枚举和 Serializable
+# Keep enums and Serializable
 # ===========================================================
 
 -keepclassmembers enum * {
@@ -35,3 +34,14 @@
     java.lang.Object readResolve();
 }
 
+# ===========================================================
+# Keep DslMarker annotation
+# ===========================================================
+
+-keep class com.answufeng.startup.AwStartupDsl { *; }
+
+# ===========================================================
+# Keep internal thread factory for stack traces
+# ===========================================================
+
+-keep class com.answufeng.startup.internal.StartupThreadFactory { *; }

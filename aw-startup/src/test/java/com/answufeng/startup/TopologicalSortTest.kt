@@ -75,25 +75,25 @@ class TopologicalSortTest {
     }
 
     @Test
-    fun `AppInitializer default dependencies is empty`() {
+    fun `StartupInitializer default dependencies is empty`() {
         val init = fakeInitializer("X", InitPriority.NORMAL)
         assertTrue(init.dependencies.isEmpty())
     }
 
     @Test
-    fun `AppInitializer default failStrategy is null`() {
+    fun `StartupInitializer default failStrategy is null`() {
         val init = fakeInitializer("X", InitPriority.NORMAL)
         assertNull(init.failStrategy)
     }
 
     @Test
-    fun `AppInitializer default timeoutMillis is 0`() {
+    fun `StartupInitializer default timeoutMillis is 0`() {
         val init = fakeInitializer("X", InitPriority.NORMAL)
         assertEquals(0L, init.timeoutMillis)
     }
 
     @Test
-    fun `AppInitializer default retryCount is 0`() {
+    fun `StartupInitializer default retryCount is 0`() {
         val init = fakeInitializer("X", InitPriority.NORMAL)
         assertEquals(0, init.retryCount)
     }
@@ -182,8 +182,8 @@ class TopologicalSortTest {
     }
 
     @Test
-    fun `AppInitializer onFailed default does nothing`() {
-        val init = object : AppInitializer() {
+    fun `StartupInitializer onFailed default does nothing`() {
+        val init = object : StartupInitializer() {
             override val name = "Test"
             override val priority = InitPriority.NORMAL
             override fun onCreate(context: Context) {}
@@ -202,7 +202,7 @@ class TopologicalSortTest {
         initName: String,
         initPriority: InitPriority,
         deps: List<String> = emptyList()
-    ): AppInitializer = object : AppInitializer() {
+    ): StartupInitializer = object : StartupInitializer() {
         override val name = initName
         override val priority = initPriority
         override val dependencies = deps

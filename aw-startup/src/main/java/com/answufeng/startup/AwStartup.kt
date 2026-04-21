@@ -34,7 +34,7 @@ import kotlin.math.min
 object AwStartup {
 
     private val started = AtomicBoolean(false)
-    private val initializers = mutableListOf<AppInitializer>()
+    private val initializers = mutableListOf<StartupInitializer>()
     @Volatile
     private var report: StartupReport? = null
     @Volatile
@@ -92,7 +92,7 @@ object AwStartup {
      * @throws IllegalStateException 如果已经启动
      * @throws IllegalArgumentException 如果名称重复
      */
-    fun register(initializer: AppInitializer) {
+    fun register(initializer: StartupInitializer) {
         synchronized(initializers) {
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
             require(initializers.none { it.name == initializer.name }) {
@@ -183,7 +183,7 @@ object AwStartup {
     /**
      * 获取初始化器间数据共享存储。
      *
-     * 初始化器可以在 [AppInitializer.onCreate] 中存储产物，
+     * 初始化器可以在 [StartupInitializer.onCreate] 中存储产物，
      * 后续初始化器可以通过 [StartupStore.get] 获取。
      */
     fun getStore(): StartupStore = store

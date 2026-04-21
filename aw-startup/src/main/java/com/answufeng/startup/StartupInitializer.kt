@@ -10,7 +10,7 @@ import android.content.Context
  *
  * 使用方式：
  * ```kotlin
- * class NetworkInit : AppInitializer() {
+ * class NetworkInit : StartupInitializer() {
  *     override val name = "Network"
  *     override val priority = InitPriority.NORMAL
  *     override val dependencies = listOf("Logger")
@@ -21,9 +21,9 @@ import android.content.Context
  * ```
  *
  * @see InitPriority
- * @see SuspendAppInitializer
+ * @see SuspendInitializer
  */
-abstract class AppInitializer {
+abstract class StartupInitializer {
 
     /** 初始化器唯一标识，用于依赖引用和日志输出。必须全局唯一。 */
     abstract val name: String
@@ -43,7 +43,7 @@ abstract class AppInitializer {
     /**
      * 单个初始化器超时时间（毫秒）。0 表示不超时。
      *
-     * 注意：超时强制取消仅对 [InitPriority.BACKGROUND] 和 [SuspendAppInitializer] 生效；
+     * 注意：超时强制取消仅对 [InitPriority.BACKGROUND] 和 [SuspendInitializer] 生效；
      * 对于 [InitPriority.IMMEDIATELY]、[InitPriority.NORMAL]、[InitPriority.DEFERRED]，
      * 超时后仅输出警告日志，无法强制取消主线程上的执行。
      */
@@ -71,3 +71,13 @@ abstract class AppInitializer {
     /** 初始化失败回调。 */
     open fun onFailed(error: Throwable) {}
 }
+
+/**
+ * 已废弃：使用 [StartupInitializer] 替代。
+ */
+@Deprecated(
+    message = "Use StartupInitializer instead",
+    replaceWith = ReplaceWith("StartupInitializer", "com.answufeng.startup.StartupInitializer"),
+    level = DeprecationLevel.WARNING
+)
+typealias AppInitializer = StartupInitializer

@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
  * 默认使用 [runBlocking] 阻塞等待协程完成，保证执行顺序不变。
  *
  * ```kotlin
- * class DbInit : SuspendAppInitializer() {
+ * class DbInit : SuspendInitializer() {
  *     override val name = "Database"
  *     override val priority = InitPriority.BACKGROUND
  *     override suspend fun onCreateSuspend(context: Context) {
@@ -20,8 +20,10 @@ import kotlinx.coroutines.runBlocking
  *     }
  * }
  * ```
+ *
+ * @see StartupInitializer
  */
-abstract class SuspendAppInitializer : AppInitializer() {
+abstract class SuspendInitializer : StartupInitializer() {
 
     /**
      * 执行协程初始化逻辑。
@@ -34,3 +36,13 @@ abstract class SuspendAppInitializer : AppInitializer() {
         runBlocking { onCreateSuspend(context) }
     }
 }
+
+/**
+ * 已废弃：使用 [SuspendInitializer] 替代。
+ */
+@Deprecated(
+    message = "Use SuspendInitializer instead",
+    replaceWith = ReplaceWith("SuspendInitializer", "com.answufeng.startup.SuspendInitializer"),
+    level = DeprecationLevel.WARNING
+)
+typealias SuspendAppInitializer = SuspendInitializer

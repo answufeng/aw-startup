@@ -5,12 +5,12 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * 初始化器间数据共享存储。
  *
- * 允许初始化器在 [AppInitializer.onCreate] 中存储产物，
+ * 允许初始化器在 [StartupInitializer.onCreate] 中存储产物，
  * 后续初始化器通过 [AwStartup.getStore] 获取。
  *
  * 使用方式：
  * ```kotlin
- * class DatabaseInit : AppInitializer() {
+ * class DatabaseInit : StartupInitializer() {
  *     override val name = "Database"
  *     override val priority = InitPriority.NORMAL
  *     override fun onCreate(context: Context) {
@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  *     }
  * }
  *
- * class RepositoryInit : AppInitializer() {
+ * class RepositoryInit : StartupInitializer() {
  *     override val name = "Repository"
  *     override val priority = InitPriority.NORMAL
  *     override val dependencies = listOf("Database")

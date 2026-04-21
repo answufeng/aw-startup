@@ -1,11 +1,10 @@
 package com.answufeng.startup.internal
 
-import com.answufeng.startup.AppInitializer
-import com.answufeng.startup.InitPriority
+import com.answufeng.startup.StartupInitializer
 
 data class PriorityGroup(
     val priority: InitPriority,
-    val initializers: List<AppInitializer>
+    val initializers: List<StartupInitializer>
 )
 
 /**
@@ -13,11 +12,13 @@ data class PriorityGroup(
  *
  * 内部使用 Kahn 算法（BFS）进行全局拓扑排序，时间复杂度 O(V+E)。
  * 循环依赖检测使用 DFS + 着色法。
+ *
+ * @param initializers 待排序的初始化器列表
  */
 class Graph(
-    private val initializers: List<AppInitializer>
+    private val initializers: List<StartupInitializer>
 ) {
-    private val nameMap: Map<String, AppInitializer> by lazy {
+    private val nameMap: Map<String, StartupInitializer> by lazy {
         initializers.associateBy { it.name }
     }
 
@@ -52,7 +53,7 @@ class Graph(
      *
      * 结果按依赖顺序排列，被依赖者在前。
      */
-    fun getSorted(priority: InitPriority): List<AppInitializer> =
+    fun getSorted(priority: InitPriority): List<StartupInitializer> =
         sortedGroups.find { it.priority == priority }?.initializers ?: emptyList()
 
     private fun validateUniqueNames() {
@@ -114,7 +115,7 @@ class Graph(
         }
     }
 
-    private fun topologicalSortAll(): List<AppInitializer> {
+    private fun topologicalSortAll(): List<StartupInitializer> {
         if (initializers.size <= 1) return initializers
 
         val inDegree = mutableMapOf<String, Int>()
@@ -139,7 +140,7 @@ class Graph(
             if (degree == 0) queue.add(name)
         }
 
-        val result = mutableListOf<AppInitializer>()
+        val result = mutableListOf<StartupInitializer>()
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
             result.add(nameMap[current]!!)

@@ -4,11 +4,11 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import com.answufeng.startup.AwStartup
-import com.answufeng.startup.AppInitializer
+import com.answufeng.startup.StartupInitializer
 import com.answufeng.startup.FailStrategy
 import com.answufeng.startup.InitPriority
 import com.answufeng.startup.StartupLogger
-import com.answufeng.startup.SuspendAppInitializer
+import com.answufeng.startup.SuspendStartupInitializer
 import kotlinx.coroutines.delay
 
 class App : Application() {
@@ -82,7 +82,7 @@ class App : Application() {
     }
 }
 
-class FirebaseInit : AppInitializer() {
+class FirebaseInit : StartupInitializer() {
     override val name = "Firebase"
     override val priority = InitPriority.IMMEDIATELY
     override fun onCreate(context: Context) {
@@ -93,7 +93,7 @@ class FirebaseInit : AppInitializer() {
     }
 }
 
-class DbInit : SuspendAppInitializer() {
+class DbInit : SuspendStartupInitializer() {
     override val name = "Database"
     override val priority = InitPriority.BACKGROUND
     override suspend fun onCreateSuspend(context: Context) {
