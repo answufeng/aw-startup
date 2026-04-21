@@ -447,7 +447,7 @@ StartupRunner.run()
 implementation("androidx.startup:startup-runtime:1.1.1")
 
 // 添加
-implementation("com.github.answufeng:aw-startup:1.2.0")
+implementation("com.github.answufeng:aw-startup:1.1.0")
 ```
 
 ### 2. 替换 Initializer
