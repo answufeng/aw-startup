@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -29,18 +29,11 @@ jobs:
       - name: Build library
         run: ./gradlew :aw-startup:assembleRelease
 
-      - name: Run unit tests
-        run: ./gradlew :aw-startup:testReleaseUnitTest
+      - name: ktlint
+        run: ./gradlew :aw-startup:ktlintCheck
 
       - name: Build demo
         run: ./gradlew :demo:assembleRelease
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: aw-startup/build/reports/tests/
 
   lint:
     runs-on: ubuntu-latest

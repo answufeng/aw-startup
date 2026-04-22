@@ -5,7 +5,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,6 +37,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+
         tvSubhead = findViewById(R.id.tvSubhead)
         tvProgress = findViewById(R.id.tvProgress)
         progress = findViewById(R.id.progress)
@@ -44,6 +51,23 @@ class MainActivity : AppCompatActivity() {
 
         pushLog("App ready")
         pushLog("Sync cost: ${AwStartup.getSyncCostMillis()} ms")
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.demo_main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_demo_playbook -> {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.demo_playbook_title)
+                .setMessage(R.string.demo_playbook_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
     }
 
     private fun setupLogs() {

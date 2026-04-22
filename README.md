@@ -4,6 +4,15 @@
 
 Android 应用启动初始化库，提供优先级分级、依赖感知的组件初始化，内置拓扑排序与循环依赖检测。
 
+**验证环境**：仓库 **demo** 使用 compileSdk 35 / targetSdk 35（minSdk 24）。
+
+## 工程品质与发版检查
+
+- **CI**：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease`。
+- **本地建议**：`./gradlew :aw-startup:assembleRelease :aw-startup:ktlintCheck :aw-startup:lintRelease :demo:assembleRelease`
+- **演示**：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)；demo 工具栏 **「演示清单」**。
+- **上线前**：对照 README 理解 **DEFERRED 超时** 与 **FailStrategy**；在低内存、后台冷启动、多进程场景各手测一轮初始化报告与 `await` 行为。
+
 ## 特性
 
 - **4 级优先级**：IMMEDIATELY → NORMAL → DEFERRED → BACKGROUND
@@ -109,6 +118,19 @@ report.forEach {
 }
 Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 ```
+
+### 失败策略、超时与 DEFERRED（集成必读）
+
+| 能力 | 说明 |
+|------|------|
+| **FailStrategy** | `CONTINUE`：单个初始化器失败不阻断后续；`ABORT_DEPENDENTS`：依赖失败则跳过依赖链（见 demo 与 README 说明）。 |
+| **初始化器 timeout** | 对 `SuspendInitializer` 等在执行器上生效；超时后标记失败并走 `onFailed`。 |
+| **DEFERRED + `deferredTimeoutMillis`** | 主线程 Idle 调度；超时后库会 **移除 IdleHandler 并强制执行** 剩余任务，避免永久饿死（见 `StartupRunner` KDoc）。 |
+| **演示** | 仓库 `demo` 可对照配置失败策略与后台并发；发版前建议在 **低内存 / 后台启动** 场景各跑一轮。 |
+
+## 演示应用
+
+`demo` 可逐项验证报告、`await`、StartupStore 与四类优先级任务；矩阵见 [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)。
 
 ## Advanced Usage
 

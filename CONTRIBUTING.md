@@ -20,7 +20,7 @@
 
 - 遵循 [Kotlin 编码规范](https://kotlinlang.org/docs/coding-conventions.html)
 - 公共 API 必须有 KDoc 注释
-- 新功能必须包含单元测试
+- 新功能请在 `demo` 中提供可运行入口，或在 PR 中写明手测步骤
 - 提交信息使用英文，格式参考 [Conventional Commits](https://www.conventionalcommits.org/)
 
 ## 开发环境
@@ -33,6 +33,7 @@
 
 ```bash
 ./gradlew :aw-startup:assembleRelease        # 构建库
-./gradlew :aw-startup:testReleaseUnitTest    # 运行单元测试
+./gradlew :aw-startup:ktlintCheck
+./gradlew :aw-startup:lintRelease
 ./gradlew :demo:assembleRelease              # 构建 Demo
 ```

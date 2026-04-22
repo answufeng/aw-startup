@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">aw-startup Demo</string>
+    <string name="demo_playbook_title">演示清单</string>
+    <string name="demo_playbook_message">索引见 demo/DEMO_MATRIX.md。\n\n• Report / await / StartupStore\n• 四类优先级与失败策略（务必读 README 中 DEFERRED 超时说明）\n\n发版前建议在低内存与后台冷启动场景各手测一轮。</string>
 </resources>
