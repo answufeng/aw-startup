@@ -2,6 +2,8 @@
 
 [![](https://jitpack.io/v/answufeng/aw-startup.svg)](https://jitpack.io/#answufeng/aw-startup)
 
+> **相关仓库**：GitHub [answufeng](https://github.com/answufeng) 组织内另有多个独立维护的 `aw-*` 基础库（架构、存储、网络、图片、日志、权限、UI、工具等），与本库相同面向传统 View/XML，工程基线多为 minSdk 24 与 JDK 17。
+
 Android 应用启动初始化库，提供优先级分级、依赖感知的组件初始化，内置拓扑排序与循环依赖检测。
 
 **验证环境**：仓库 **demo** 使用 compileSdk 35 / targetSdk 35（minSdk 24）。
