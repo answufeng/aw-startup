@@ -6,6 +6,12 @@ Android 应用启动初始化库，提供优先级分级、依赖感知的组件
 
 **验证环境**：仓库 **demo** 使用 compileSdk 35 / targetSdk 35（minSdk 24）。
 
+## 文档导读
+
+1. [工程品质与发版检查](#工程品质与发版检查) → [Quick Start](#quick-start-3-steps) → [失败策略表](#失败策略超时与-deferred集成必读)  
+2. [演示应用](#演示应用)：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)（含 **推荐手测**）  
+3. 深入：[Advanced Usage](#advanced-usage)、[FAQ](#faq)
+
 ## 工程品质与发版检查
 
 - **CI**：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease`。
@@ -127,6 +133,14 @@ Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 | **初始化器 timeout** | 对 `SuspendInitializer` 等在执行器上生效；超时后标记失败并走 `onFailed`。 |
 | **DEFERRED + `deferredTimeoutMillis`** | 主线程 Idle 调度；超时后库会 **移除 IdleHandler 并强制执行** 剩余任务，避免永久饿死（见 `StartupRunner` KDoc）。 |
 | **演示** | 仓库 `demo` 可对照配置失败策略与后台并发；发版前建议在 **低内存 / 后台启动** 场景各跑一轮。 |
+
+### 误用防火墙（必读）
+
+| 误用 | 后果 | 正确做法 |
+|------|------|----------|
+| 把 **重量级 IO / 网络** 放进 `IMMEDIATELY` | 启动闪屏卡顿甚至 ANR | 下沉到 `NORMAL` / `BACKGROUND`，仅保留极轻量标记位 |
+| 假设 **DEFERRED** 一定在「首帧之后很快」执行 | 主线程一直忙时任务推迟 | 配置合理 `deferredTimeoutMillis`；关键路径不要依赖 DEFERRED |
+| `await` 超时当「初始化失败」 | 后台任务仍在跑，状态与业务假设不一致 | 把超时当 **未就绪**，UI 降级；日志对照 `getReport()` |
 
 ## 演示应用
 

@@ -37,3 +37,7 @@
 ./gradlew :aw-startup:lintRelease
 ./gradlew :demo:assembleRelease              # 构建 Demo
 ```
+
+## 发版前补充检查（R8）
+
+初始化与线程池类在混淆后应保持行为一致；发版前 `assembleRelease` + demo，低内存场景手测报告与 `await`。
