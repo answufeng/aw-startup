@@ -9,7 +9,6 @@ import com.answufeng.startup.internal.Graph
 import com.answufeng.startup.internal.StartupReport
 import com.answufeng.startup.internal.StartupRunner
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.min
 
 /**
  * 应用启动初始化入口。
@@ -123,15 +122,33 @@ object AwStartup {
                 val existing = config!!
                 cfg.resultCallback?.let { existing.resultCallback = it }
                 cfg.progressCallback?.let { existing.progressCallback = it }
-                if (cfg.logger) existing.logger = cfg.logger
-                cfg.startupLogger?.let { existing.startupLogger = it }
-                if (cfg.backgroundThreadCount != min(4, Runtime.getRuntime().availableProcessors())) {
-                    existing.backgroundThreadCount = cfg.backgroundThreadCount
+                if (cfg.loggerExplicit) {
+                    existing.logger = cfg.logger
+                    existing.loggerExplicit = true
                 }
-                cfg.customExecutor?.let { existing.customExecutor = it }
-                if (cfg.failStrategy != FailStrategy.CONTINUE) existing.failStrategy = cfg.failStrategy
-                if (cfg.defaultTimeoutMillis > 0) existing.defaultTimeoutMillis = cfg.defaultTimeoutMillis
-                if (cfg.deferredTimeoutMillis > 0) existing.deferredTimeoutMillis = cfg.deferredTimeoutMillis
+                cfg.startupLogger?.let {
+                    existing.startupLogger = it
+                }
+                if (cfg.backgroundThreadCountExplicit) {
+                    existing.backgroundThreadCount = cfg.backgroundThreadCount
+                    existing.backgroundThreadCountExplicit = true
+                }
+                if (cfg.customExecutorExplicit) {
+                    existing.customExecutor = cfg.customExecutor
+                    existing.customExecutorExplicit = true
+                }
+                if (cfg.failStrategyExplicit) {
+                    existing.failStrategy = cfg.failStrategy
+                    existing.failStrategyExplicit = true
+                }
+                if (cfg.defaultTimeoutExplicit) {
+                    existing.defaultTimeoutMillis = cfg.defaultTimeoutMillis
+                    existing.defaultTimeoutExplicit = true
+                }
+                if (cfg.deferredTimeoutExplicit) {
+                    existing.deferredTimeoutMillis = cfg.deferredTimeoutMillis
+                    existing.deferredTimeoutExplicit = true
+                }
             }
             for (init in cfg.initializers) {
                 require(initializers.none { it.name == init.name }) {
@@ -189,7 +206,7 @@ object AwStartup {
     fun getStore(): StartupStore = store
 
     /**
-     * 无限等待所有后台任务完成。
+     * 无限等待所有 DEFERRED（Idle）与 BACKGROUND 任务完成。
      *
      * **注意**：不要在主线程调用，否则会阻塞 UI。
      * 建议使用带超时的 [await] 替代。
@@ -203,7 +220,7 @@ object AwStartup {
     }
 
     /**
-     * 带超时等待所有后台任务完成。
+     * 带超时等待所有 **DEFERRED（Idle）** 与 **BACKGROUND** 任务完成。
      *
      * @param timeoutMillis 超时时间（毫秒）
      * @return 是否在超时前完成
@@ -239,12 +256,15 @@ object AwStartup {
     /**
      * 重置状态（主要用于测试）。
      *
-     * 会等待后台任务完成（最多 [awaitTimeoutMillis] 毫秒），然后清除所有状态。
+     * 会等待 DEFERRED / BACKGROUND 任务完成（最多 [awaitTimeoutMillis] 毫秒），然后清除所有状态。
      *
      * @param awaitTimeoutMillis 等待后台任务完成的超时时间（毫秒），默认 2000
      */
     fun reset(awaitTimeoutMillis: Long = 2000) {
         synchronized(initializers) {
+            try {
+                report?.awaitBackground(awaitTimeoutMillis)
+            } catch (_: Exception) {}
             runner?.shutdown()
             try {
                 runner?.awaitTermination(awaitTimeoutMillis)

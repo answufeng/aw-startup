@@ -46,6 +46,9 @@ abstract class StartupInitializer {
      * 注意：超时强制取消仅对 [InitPriority.BACKGROUND] 和 [SuspendInitializer] 生效；
      * 对于 [InitPriority.IMMEDIATELY]、[InitPriority.NORMAL]、[InitPriority.DEFERRED]，
      * 超时后仅输出警告日志，无法强制取消主线程上的执行。
+     *
+     * [SuspendInitializer] 在主线程优先级下由库内放到临时线程执行 [suspend] 块，超时对协程体仍可通过
+     * [kotlinx.coroutines.withTimeout] 生效；普通 [onCreate] 仍运行在主调用线程上。
      */
     open val timeoutMillis: Long = 0
 

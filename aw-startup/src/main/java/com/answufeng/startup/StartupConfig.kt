@@ -58,11 +58,17 @@ class StartupConfig {
     internal var progressCallback: ((completed: Int, total: Int) -> Unit)? = null
     internal var logger: Boolean = false
     internal var startupLogger: StartupLogger? = null
+    internal var loggerExplicit: Boolean = false
     internal var backgroundThreadCount: Int = min(4, Runtime.getRuntime().availableProcessors())
+    internal var backgroundThreadCountExplicit: Boolean = false
     internal var customExecutor: java.util.concurrent.ExecutorService? = null
+    internal var customExecutorExplicit: Boolean = false
     internal var failStrategy: FailStrategy = FailStrategy.CONTINUE
+    internal var failStrategyExplicit: Boolean = false
     internal var defaultTimeoutMillis: Long = 0
+    internal var defaultTimeoutExplicit: Boolean = false
     internal var deferredTimeoutMillis: Long = 0
+    internal var deferredTimeoutExplicit: Boolean = false
 
     /**
      * 添加自定义初始化器实例。
@@ -98,6 +104,7 @@ class StartupConfig {
      */
     fun logger(enabled: Boolean = true) {
         logger = enabled
+        loggerExplicit = true
     }
 
     /**
@@ -108,6 +115,7 @@ class StartupConfig {
     fun logger(logger: StartupLogger) {
         startupLogger = logger
         this.logger = true
+        loggerExplicit = true
     }
 
     /**
@@ -121,6 +129,7 @@ class StartupConfig {
     fun backgroundThreads(count: Int) {
         require(count > 0) { "后台线程数必须大于 0，当前值：$count" }
         backgroundThreadCount = count
+        backgroundThreadCountExplicit = true
     }
 
     /**
@@ -130,6 +139,7 @@ class StartupConfig {
      */
     fun executor(executor: java.util.concurrent.ExecutorService) {
         customExecutor = executor
+        customExecutorExplicit = true
     }
 
     /**
@@ -139,6 +149,7 @@ class StartupConfig {
      */
     fun failStrategy(strategy: FailStrategy) {
         failStrategy = strategy
+        failStrategyExplicit = true
     }
 
     /**
@@ -152,12 +163,13 @@ class StartupConfig {
     fun timeout(millis: Long) {
         require(millis >= 0) { "超时时间不能为负数，当前值：$millis" }
         defaultTimeoutMillis = millis
+        defaultTimeoutExplicit = true
     }
 
     /**
      * 设置 DEFERRED 优先级初始化器的超时时间（毫秒）。0 表示不超时。
      *
-     * DEFERRED 任务在首屏渲染后执行，超时后仅输出警告。
+     * DEFERRED 任务在 Idle 回调中执行；超时后会移除 IdleHandler 并在主线程上强制执行剩余任务（并输出警告日志）。
      *
      * @param millis 超时时间（毫秒），不能为负数
      * @throws IllegalArgumentException 如果 millis < 0
@@ -165,6 +177,7 @@ class StartupConfig {
     fun deferredTimeout(millis: Long) {
         require(millis >= 0) { "DEFERRED 超时时间不能为负数，当前值：$millis" }
         deferredTimeoutMillis = millis
+        deferredTimeoutExplicit = true
     }
 
     /**
@@ -337,7 +350,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendStartupInitializer() {
+        add(object : SuspendInitializer() {
             override val name = name
             override val priority = InitPriority.IMMEDIATELY
             override val dependencies = deps.toList()
@@ -372,7 +385,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendStartupInitializer() {
+        add(object : SuspendInitializer() {
             override val name = name
             override val priority = InitPriority.NORMAL
             override val dependencies = deps.toList()
@@ -407,7 +420,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendStartupInitializer() {
+        add(object : SuspendInitializer() {
             override val name = name
             override val priority = InitPriority.DEFERRED
             override val dependencies = deps.toList()
@@ -442,7 +455,7 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendStartupInitializer() {
+        add(object : SuspendInitializer() {
             override val name = name
             override val priority = InitPriority.BACKGROUND
             override val dependencies = deps.toList()

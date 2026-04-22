@@ -3,8 +3,8 @@
     <application
         android:name=".App"
         android:allowBackup="false"
-        android:label="🚀 启动库演示"
-        android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar">
+        android:label="AwStartup Demo"
+        android:theme="@style/Theme.AwStartupDemo">
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -34,15 +34,15 @@ sealed class InitPriority(val ordinal: Int) : Comparable<InitPriority> {
     data object BACKGROUND : InitPriority(3)
 
     /**
-     * 自定义优先级，可携带自定义 [Executor][java.util.concurrent.Executor]。
+     * 自定义优先级,可携带自定义 [Executor][java.util.concurrent.Executor]。
      *
-     * @param ordinal 优先级序号，用于排序比较
-     * @param executor 自定义执行器，为 null 时使用默认线程池
+     * @param customOrdinal 优先级序号,用于排序比较
+     * @param executor 自定义执行器,为 null 时使用默认线程池
      */
     data class Custom(
-        override val ordinal: Int,
+        val customOrdinal: Int,
         val executor: java.util.concurrent.Executor? = null
-    ) : InitPriority(ordinal)
+    ) : InitPriority(customOrdinal)
 
     companion object {
         /** 内置优先级列表。 */

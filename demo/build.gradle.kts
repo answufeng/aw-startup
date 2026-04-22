@@ -42,4 +42,5 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.constraintlayout)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 }

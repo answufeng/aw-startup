@@ -11,11 +11,11 @@ import com.answufeng.startup.InitResult
 import com.answufeng.startup.StartupConfig
 import com.answufeng.startup.StartupLogger
 import com.answufeng.startup.SuspendInitializer
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Future
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -32,6 +32,9 @@ import kotlinx.coroutines.withTimeout
  * - SYNC（IMMEDIATELY/NORMAL）：主线程顺序执行
  * - IDLE（DEFERRED）：IdleHandler 延迟执行
  * - CONCURRENT（BACKGROUND/Custom+executor）：线程池并发执行
+ *
+ * 默认线程池使用无界 [LinkedBlockingQueue] 与 [ThreadPoolExecutor.AbortPolicy]，避免在同步阶段
+ * 向主线程「借线程」执行后台任务（`CallerRunsPolicy` 的典型风险）。
  */
 class StartupRunner(
     private val graph: Graph,
@@ -55,9 +58,9 @@ class StartupRunner(
         ?: ThreadPoolExecutor(
             backgroundThreadCount, backgroundThreadCount,
             30L, TimeUnit.SECONDS,
-            ArrayBlockingQueue(128),
+            LinkedBlockingQueue(),
             StartupThreadFactory(),
-            ThreadPoolExecutor.CallerRunsPolicy()
+            ThreadPoolExecutor.AbortPolicy()
         ).also { it.allowCoreThreadTimeOut(true) }
 
     private var concurrentLatch: CountDownLatch? = null
@@ -75,6 +78,11 @@ class StartupRunner(
             priority.ordinal <= InitPriority.DEFERRED.ordinal -> ExecStrategy.IDLE
             else -> ExecStrategy.CONCURRENT
         }
+    }
+
+    private fun executorFor(init: StartupInitializer): ExecutorService {
+        val customExec = (init.priority as? InitPriority.Custom)?.executor
+        return if (customExec is ExecutorService) customExec else executor
     }
 
     fun run(): StartupReport {
@@ -137,21 +145,21 @@ class StartupRunner(
         val queue = looper.queue
         val index = java.util.concurrent.atomic.AtomicInteger(0)
         val size = initializers.size
+        val deferredTimeout = config?.deferredTimeoutMillis ?: 0L
+        val idleLatch = CountDownLatch(size)
+        report.idleLatch = idleLatch
 
-        val idleHandler = object : MessageQueue.IdleHandler {
-            override fun queueIdle(): Boolean {
-                var i = index.getAndIncrement()
-                while (i < size) {
-                    executeInitializer(initializers[i])
-                    i = index.getAndIncrement()
-                }
-                mainHandler.removeCallbacks(timeoutRunnable)
-                return false
+        fun runIdleInitializer(init: StartupInitializer) {
+            try {
+                executeInitializer(init)
+            } finally {
+                idleLatch.countDown()
             }
         }
-        queue.addIdleHandler(idleHandler)
 
-        val deferredTimeout = config?.deferredTimeoutMillis ?: 0L
+        // Use a mutable reference to hold the idleHandler so timeoutRunnable can access it
+        val idleHandlerRef = arrayOfNulls<MessageQueue.IdleHandler>(1)
+        
         val timeoutRunnable = Runnable {
             val left = size - index.get()
             if (left > 0) {
@@ -159,14 +167,29 @@ class StartupRunner(
                     "AwStartup",
                     "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
                 )
-                queue.removeIdleHandler(idleHandler)
+                idleHandlerRef[0]?.let { queue.removeIdleHandler(it) }
                 var i = index.getAndIncrement()
                 while (i < size) {
-                    executeInitializer(initializers[i])
+                    runIdleInitializer(initializers[i])
                     i = index.getAndIncrement()
                 }
             }
         }
+
+        val idleHandler = object : MessageQueue.IdleHandler {
+            override fun queueIdle(): Boolean {
+                var i = index.getAndIncrement()
+                while (i < size) {
+                    runIdleInitializer(initializers[i])
+                    i = index.getAndIncrement()
+                }
+                mainHandler.removeCallbacks(timeoutRunnable)
+                return false
+            }
+        }
+        idleHandlerRef[0] = idleHandler
+        queue.addIdleHandler(idleHandler)
+
         if (deferredTimeout > 0) {
             mainHandler.postDelayed(timeoutRunnable, deferredTimeout)
         }
@@ -182,9 +205,7 @@ class StartupRunner(
         }
 
         for (init in initializers) {
-            val customExec = (init.priority as? InitPriority.Custom)?.executor
-            val targetExecutor: ExecutorService =
-                if (customExec is ExecutorService) customExec else executor
+            val targetExecutor = executorFor(init)
 
             targetExecutor.submit {
                 try {
@@ -246,7 +267,8 @@ class StartupRunner(
                     if (init is SuspendInitializer) {
                         doExecute(init, effectiveTimeout)
                     } else {
-                        val future: Future<*> = executor.submit {
+                        val execForInit = executorFor(init)
+                        val future: Future<*> = execForInit.submit {
                             doExecute(init)
                         }
                         try {
@@ -273,7 +295,11 @@ class StartupRunner(
                 val r = InitResult(init.name, init.priority, cost, true)
                 report.addResult(r)
                 notifyResult(r)
-                try { init.onCompleted() } catch (_: Exception) {}
+                try {
+                    init.onCompleted()
+                } catch (e: Exception) {
+                    log.e("AwStartup", "初始化器 ${init.name} onCompleted 回调异常", e)
+                }
                 return
             } catch (e: Exception) {
                 lastError = e
@@ -291,17 +317,36 @@ class StartupRunner(
         report.addResult(r)
         failedInitializers.add(init.name)
         notifyResult(r)
-        try { init.onFailed(lastError ?: RuntimeException("Unknown error")) } catch (_: Exception) {}
+        try {
+            init.onFailed(lastError ?: RuntimeException("Unknown error"))
+        } catch (e: Exception) {
+            log.e("AwStartup", "初始化器 ${init.name} onFailed 回调异常", e)
+        }
     }
 
     private fun doExecute(init: StartupInitializer, timeoutMillis: Long = 0) {
         if (init is SuspendInitializer) {
-            runBlocking {
+            val run: suspend () -> Unit = {
                 if (timeoutMillis > 0) {
                     withTimeout(timeoutMillis) { init.onCreateSuspend(context) }
                 } else {
                     init.onCreateSuspend(context)
                 }
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                var thrown: Throwable? = null
+                val worker = Thread({
+                    try {
+                        runBlocking { run() }
+                    } catch (t: Throwable) {
+                        thrown = t
+                    }
+                }, "aw-startup-suspend-${init.name}")
+                worker.start()
+                worker.join()
+                thrown?.let { throw it }
+            } else {
+                runBlocking { run() }
             }
         } else {
             init.onCreate(context)

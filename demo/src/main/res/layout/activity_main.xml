@@ -1,116 +1,224 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA">
+    android:background="@color/ds_bg">
 
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:background="@color/ds_bg"
+        app:elevation="0dp">
 
-        <TextView
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🚀 aw-startup 启动库演示"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#212121"
-            android:gravity="center"
-            android:paddingTop="16dp"
-            android:paddingBottom="8dp" />
+            android:background="@color/ds_bg"
+            app:title="AwStartup Demo"
+            app:titleTextColor="@color/ds_text"
+            app:subtitle="Startup report • progress • store"
+            app:subtitleTextColor="@color/ds_text_muted" />
+    </com.google.android.material.appbar.AppBarLayout>
 
-        <TextView
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:padding="16dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="拓扑排序 · 优先级管理 · 启动报告 · 后台任务等待"
-            android:textSize="13sp"
-            android:textColor="#757575"
-            android:gravity="center"
-            android:paddingBottom="16dp" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📋 操作日志"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:background="#2196F3"
-            android:padding="12dp" />
-
-        <ScrollView
-            android:id="@+id/logScrollView"
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:background="#FFFFFF"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:id="@+id/tvLog"
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AwStartupDemo.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#333333"
-                android:lineSpacingExtra="3dp" />
-        </ScrollView>
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/ds_surface">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📊 启动报告"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#424242"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-        <Button
-            android:id="@+id/btnReport"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="查看 启动报告(耗时/优先级/状态)"
-            android:layout_marginBottom="8dp" />
+                    <TextView
+                        android:id="@+id/tvHeadline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Startup status"
+                        android:textColor="@color/ds_text"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnAwait"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="等待 后台任务完成(3秒超时)"
-            android:layout_marginBottom="8dp" />
+                    <TextView
+                        android:id="@+id/tvSubhead"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Sync cost: -- ms"
+                        android:textColor="@color/ds_text_muted"
+                        android:textSize="13sp" />
 
-        <Button
-            android:id="@+id/btnIsInitialized"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="查询 初始化器完成状态"
-            android:layout_marginBottom="8dp" />
+                    <com.google.android.material.progressindicator.LinearProgressIndicator
+                        android:id="@+id/progress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:indeterminate="false"
+                        app:indicatorColor="@color/ds_primary"
+                        app:trackColor="@color/ds_surface_variant" />
 
-        <Button
-            android:id="@+id/btnStore"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="📦 查看 StartupStore 数据"
-            android:layout_marginBottom="16dp" />
+                    <TextView
+                        android:id="@+id/tvProgress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Progress: --/--"
+                        android:textColor="@color/ds_text_muted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🔧 管理"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#424242"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AwStartupDemo.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/ds_surface">
 
-        <Button
-            android:id="@+id/btnClearLog"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="🗑️ 清除日志"
-            android:layout_marginBottom="16dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-    </LinearLayout>
-</ScrollView>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Actions"
+                        android:textColor="@color/ds_text"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:hintEnabled="true"
+                        android:hint="Await timeout (ms)">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAwaitTimeout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:text="3000" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAwait"
+                        style="@style/Widget.AwStartupDemo.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Await background tasks" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReport"
+                        style="@style/Widget.AwStartupDemo.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Show startup report" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIsInitialized"
+                        style="@style/Widget.AwStartupDemo.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Check initializer states" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnStore"
+                        style="@style/Widget.AwStartupDemo.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Show StartupStore data" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AwStartupDemo.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/ds_surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Logs"
+                            android:textColor="@color/ds_text"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCopyLog"
+                            style="@style/Widget.AwStartupDemo.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Copy" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnShareLog"
+                            style="@style/Widget.AwStartupDemo.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Share" />
+                    </LinearLayout>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvLog"
+                        android:layout_width="match_parent"
+                        android:layout_height="320dp"
+                        android:layout_marginTop="12dp"
+                        android:background="@color/ds_surface_variant"
+                        android:clipToPadding="false"
+                        android:padding="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnClearLog"
+                        style="@style/Widget.AwStartupDemo.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Clear logs"
+                        app:backgroundTint="@color/ds_surface_variant"
+                        app:strokeColor="@color/ds_divider"
+                        app:strokeWidth="1dp"
+                        android:textColor="@color/ds_text" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

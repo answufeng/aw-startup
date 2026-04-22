@@ -23,6 +23,9 @@ class StartupReport(
     var syncCostMillis: Long = 0L
         internal set
 
+    var idleLatch: CountDownLatch? = null
+        internal set
+
     var backgroundLatch: CountDownLatch? = null
         internal set
 
@@ -36,12 +39,37 @@ class StartupReport(
         _completedNames.add(result.name)
     }
 
+    /**
+     * 等待 DEFERRED（Idle 队列）与 BACKGROUND 线程池任务全部结束。
+     * 不包含已在 [StartupRunner.run] 返回前完成的同步阶段（IMMEDIATELY / NORMAL）。
+     */
     fun awaitBackground() {
+        idleLatch?.await()
         backgroundLatch?.await()
     }
 
+    /**
+     * 在超时内等待 DEFERRED 与 BACKGROUND 全部结束。
+     *
+     * @return 是否在截止前全部完成（无对应 latch 时视为成功）
+     */
     fun awaitBackground(timeoutMillis: Long): Boolean {
-        return backgroundLatch?.await(timeoutMillis, TimeUnit.MILLISECONDS) ?: true
+        if (timeoutMillis <= 0L) {
+            awaitBackground()
+            return true
+        }
+        val deadlineNs = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+        fun remainingMillis(): Long {
+            val left = deadlineNs - System.nanoTime()
+            return TimeUnit.NANOSECONDS.toMillis(left.coerceAtLeast(0L))
+        }
+        idleLatch?.let {
+            if (!it.await(remainingMillis(), TimeUnit.MILLISECONDS)) return false
+        }
+        backgroundLatch?.let {
+            if (!it.await(remainingMillis(), TimeUnit.MILLISECONDS)) return false
+        }
+        return true
     }
 
     fun log() {

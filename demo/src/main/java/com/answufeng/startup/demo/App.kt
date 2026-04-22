@@ -8,7 +8,7 @@ import com.answufeng.startup.StartupInitializer
 import com.answufeng.startup.FailStrategy
 import com.answufeng.startup.InitPriority
 import com.answufeng.startup.StartupLogger
-import com.answufeng.startup.SuspendStartupInitializer
+import com.answufeng.startup.SuspendInitializer
 import kotlinx.coroutines.delay
 
 class App : Application() {
@@ -93,7 +93,7 @@ class FirebaseInit : StartupInitializer() {
     }
 }
 
-class DbInit : SuspendStartupInitializer() {
+class DbInit : SuspendInitializer() {
     override val name = "Database"
     override val priority = InitPriority.BACKGROUND
     override suspend fun onCreateSuspend(context: Context) {

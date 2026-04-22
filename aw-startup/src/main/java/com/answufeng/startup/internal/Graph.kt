@@ -1,6 +1,9 @@
 package com.answufeng.startup.internal
 
+import com.answufeng.startup.InitPriority
 import com.answufeng.startup.StartupInitializer
+import java.util.LinkedHashMap
+import java.util.TreeSet
 
 data class PriorityGroup(
     val priority: InitPriority,
@@ -118,8 +121,12 @@ class Graph(
     private fun topologicalSortAll(): List<StartupInitializer> {
         if (initializers.size <= 1) return initializers
 
-        val inDegree = mutableMapOf<String, Int>()
-        val adj = mutableMapOf<String, MutableList<String>>()
+        val nameToIndex: Map<String, Int> =
+            initializers.mapIndexed { index, init -> init.name to index }.toMap()
+        val cmp = compareBy<String> { nameToIndex[it]!! }
+
+        val inDegree = LinkedHashMap<String, Int>()
+        val adj = LinkedHashMap<String, MutableList<String>>()
 
         for (init in initializers) {
             inDegree[init.name] = 0
@@ -135,19 +142,19 @@ class Graph(
             }
         }
 
-        val queue = ArrayDeque<String>()
+        val ready = TreeSet(cmp)
         for ((name, degree) in inDegree) {
-            if (degree == 0) queue.add(name)
+            if (degree == 0) ready.add(name)
         }
 
         val result = mutableListOf<StartupInitializer>()
-        while (queue.isNotEmpty()) {
-            val current = queue.removeFirst()
+        while (ready.isNotEmpty()) {
+            val current = ready.pollFirst()
             result.add(nameMap[current]!!)
             for (neighbor in adj[current]!!) {
                 inDegree[neighbor] = inDegree[neighbor]!! - 1
                 if (inDegree[neighbor] == 0) {
-                    queue.add(neighbor)
+                    ready.add(neighbor)
                 }
             }
         }

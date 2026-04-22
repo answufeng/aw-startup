@@ -53,7 +53,6 @@
 -keep class com.answufeng.startup.StartupReport$* { *; }
 
 -keep interface com.answufeng.startup.StartupLogger { *; }
--keep class com.answufeng.startup.DefaultStartupLogger { *; }
 
 -keep class com.answufeng.startup.SuspendInitializer { *; }
 -keep class com.answufeng.startup.SuspendInitializer$* { *; }
