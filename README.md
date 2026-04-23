@@ -1,85 +1,32 @@
 # aw-startup
 
-[![](https://jitpack.io/v/answufeng/aw-startup.svg)](https://jitpack.io/#answufeng/aw-startup)
+[![JitPack](https://jitpack.io/v/answufeng/aw-startup.svg)](https://jitpack.io/#answufeng/aw-startup)
 
-> **相关仓库**：GitHub [answufeng](https://github.com/answufeng) 组织内另有多个独立维护的 `aw-*` 基础库（架构、存储、网络、图片、日志、权限、UI、工具等），与本库相同面向传统 View/XML，工程基线多为 minSdk 24 与 JDK 17。
+> **aw-\*** 生态：同组织内另有多个传统 **View / XML** 向的基础库；本工程基线 **minSdk 24**、**JDK 17**（demo 验证 **compileSdk 35**）。
 
-Android 应用启动初始化库，提供优先级分级、依赖感知的组件初始化，内置拓扑排序与循环依赖检测。
+在 `Application` 中集中管理应用启动阶段初始化：多优先级、**依赖有向图、拓扑排序、环检测**；支持主线程同步、**Idle 延后**、**后台池并发**、协程、失败策略与可观测性。
 
-**验证环境**：仓库 **demo** 使用 compileSdk 35 / targetSdk 35（minSdk 24）。
+---
 
-## 文档导读
+## 目录
 
-1. [工程品质与发版检查](#工程品质与发版检查) → [Quick Start](#quick-start-3-steps) → [失败策略表](#失败策略超时与-deferred集成必读)  
-2. [演示应用](#演示应用)：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)（含 **推荐手测**）  
-3. 深入：[Advanced Usage](#advanced-usage)、[FAQ](#faq)
+| 想做的事 | 跳转 |
+|----------|------|
+| 一行依赖 + 最小示例 | [依赖与 Quick Start](#依赖与-quick-start) |
+| 发版/CI、Demo 手测 | [工程与发版](#工程与发版) |
+| 先读：失败、超时、DEFERRED 坑 | [集成前必读](#集成前必读) |
+| 全量能力说明 | [能力一览](#能力一览) |
+| 与 AndroidX Startup 区别 | [对比表](#与-androidx-startup-对比) |
+| 类/协程/DSL/迁移 | [进阶与示例](#进阶与示例) |
+| 执行流、并发、R8 | [架构与线程安全 / ProGuard](#架构设计) |
+| 表格式 API | [API 参考](#api-参考) |
+| 排错与细则 | [FAQ](#faq) |
 
-## 工程品质与发版检查
+---
 
-- **CI**：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease`。
-- **本地建议**：`./gradlew :aw-startup:assembleRelease :aw-startup:ktlintCheck :aw-startup:lintRelease :demo:assembleRelease`
-- **演示**：[demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)；demo 工具栏 **「演示清单」**。
-- **上线前**：对照 README 理解 **DEFERRED 超时** 与 **FailStrategy**；在低内存、后台冷启动、多进程场景各手测一轮初始化报告与 `await` 行为。
+## 依赖与 Quick Start
 
-## 特性
-
-- **4 级优先级**：IMMEDIATELY → NORMAL → DEFERRED → BACKGROUND
-- **自定义优先级**：`InitPriority.Custom` 支持自定义执行器
-- **拓扑排序**：同一优先级内按依赖关系排序，带循环依赖检测
-- **后台线程池**：BACKGROUND 优先级使用 CountDownLatch 保证依赖顺序
-- **空闲执行**：DEFERRED 优先级通过 IdleHandler 延迟到主线程空闲时执行
-- **DEFERRED 超时保护**：可配置超时时间，超时后强制执行
-- **错误隔离**：单个初始化器失败不影响后续初始化
-- **失败策略**：`FailStrategy.ABORT_DEPENDENTS` 自动跳过依赖失败者的任务
-- **初始化器级别失败策略**：每个初始化器可单独配置失败策略
-- **重试支持**：初始化器可配置重试次数
-- **超时控制**：初始化器可配置超时时间，超时自动取消
-- **DSL 配置**：简洁的 Kotlin DSL 方式注册初始化器（`immediately` / `normal` / `deferred` / `background`）
-- **DSL 协程支持**：`suspendImmediately` / `suspendNormal` / `suspendDeferred` / `suspendBackground` 支持 suspend 函数
-- **DSL 回调**：DSL 方式支持 `onCompleted` / `onFailed` 回调
-- **结果回调**：每个初始化器完成后触发回调，回调保证在主线程执行
-- **进度回调**：`onProgress(completed, total)` 实时追踪初始化进度
-- **初始化报告**：含耗时统计，可随时获取（实时更新）
-- **状态查询**：`isInitialized(name)` 便捷查询初始化器是否已完成
-- **可配置线程数**：支持自定义后台线程池大小或自定义 ExecutorService
-- **默认后台线程池**：`LinkedBlockingQueue`（无界队列）+ `AbortPolicy`；任务过载时拒绝提交而非借调用线程执行，避免同步阶段误把后台任务派回主线程（`CallerRunsPolicy` 的典型风险）。可按需 `executor(...)` 自定义队列与拒绝策略
-- **线程命名**：后台线程命名为 `aw-startup-bg-{N}`，便于调试
-- **await 支持**：可等待所有后台任务完成，支持超时
-- **协程兼容**：`SuspendInitializer` 支持 `suspend` 初始化逻辑
-- **条件执行**：`enabled` 属性支持运行时条件控制初始化器是否执行
-- **数据共享**：`StartupStore` 支持初始化器间传递初始化产物
-- **自定义日志**：`StartupLogger` 接口支持自定义日志实现
-- **主进程判断**：`mainProcessOnly` 参数自动跳过子进程初始化
-- **onFailed 回调**：初始化器可自行处理失败（降级/重试）
-- **跳过状态**：`InitResult.skipped` 区分失败和跳过
-
-## 与 AndroidX Startup 对比
-
-| 特性 | AndroidX Startup | aw-startup |
-|------|-----------------|------------|
-| 优先级分级 | ❌ | ✅ 4 级 + 自定义 |
-| 依赖排序 | ✅ | ✅ |
-| 循环依赖检测 | ❌ | ✅ |
-| 后台线程执行 | ❌ | ✅ |
-| 空闲时执行 | ❌ | ✅ IdleHandler |
-| DSL 配置 | ❌ | ✅ |
-| 初始化耗时报告 | ❌ | ✅ |
-| 错误隔离 | ❌ | ✅ |
-| 失败策略 | ❌ | ✅ |
-| 等待完成 | ❌ | ✅ 带超时 |
-| 协程兼容 | ❌ | ✅ |
-| 自定义执行器 | ❌ | ✅ |
-| 重试支持 | ❌ | ✅ |
-| 超时控制 | ❌ | ✅ |
-| 主进程判断 | ❌ | ✅ |
-| 状态查询 | ❌ | ✅ |
-| DEFERRED 超时保护 | ❌ | ✅ |
-| 条件执行 | ❌ | ✅ |
-| 初始化器间数据传递 | ❌ | ✅ |
-| 进度回调 | ❌ | ✅ |
-| 自定义日志 | ❌ | ✅ |
-
-## 引入
+### 依赖
 
 ```kotlin
 // settings.gradle.kts
@@ -88,20 +35,22 @@ dependencyResolutionManagement {
         maven { url = uri("https://jitpack.io") }
     }
 }
+```
 
+```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.answufeng:aw-startup:1.1.0")
+    implementation("com.github.answufeng:aw-startup:1.0.0")
 }
 ```
 
-## Quick Start (3 steps)
+### 三步接入
 
-### Step 1: 引入依赖
+1. 添加上方依赖。  
+2. 在 `Application.onCreate` 中调用 `AwStartup.init`（主进程可 `mainProcessOnly = true`）。  
+3. 用 `getReport()` / `getSyncCostMillis()` 查看结果（可选 `logger(true)` 打全量报告）。
 
-按照上面的"引入"步骤添加 Gradle 依赖。
-
-### Step 2: 在 Application 中初始化
+**示例：**
 
 ```kotlin
 class MyApp : Application() {
@@ -117,8 +66,6 @@ class MyApp : Application() {
 }
 ```
 
-### Step 3: 查看启动报告
-
 ```kotlin
 val report = AwStartup.getReport()
 report.forEach {
@@ -127,81 +74,111 @@ report.forEach {
 Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 ```
 
-### 失败策略、超时与 DEFERRED（集成必读）
+### 工程与发版
 
-| 能力 | 说明 |
-|------|------|
-| **FailStrategy** | `CONTINUE`：单个初始化器失败不阻断后续；`ABORT_DEPENDENTS`：依赖失败则跳过依赖链（见 demo 与 README 说明）。 |
-| **初始化器 timeout** | 对 `SuspendInitializer` 等在执行器上生效；超时后标记失败并走 `onFailed`。 |
-| **DEFERRED + `deferredTimeoutMillis`** | 主线程 Idle 调度；超时后库会 **移除 IdleHandler 并强制执行** 剩余任务，避免永久饿死（见 `StartupRunner` KDoc）。 |
-| **演示** | 仓库 `demo` 可对照配置失败策略与后台并发；发版前建议在 **低内存 / 后台启动** 场景各跑一轮。 |
+| 项 | 说明 |
+|----|------|
+| CI | [`.github/workflows/ci.yml`](.github/workflows/ci.yml)：`assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease` |
+| 本地 | `./gradlew :aw-startup:assembleRelease :aw-startup:ktlintCheck :aw-startup:lintRelease :demo:assembleRelease` |
+| 演示 | [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md) · 应用内 **「演示清单」** |
+| 发版前 | 搞清 **DEFERRED 超时** 与 **FailStrategy**；低内存、后台冷启动、多进程各手测一次 |
 
-### 误用防火墙（必读）
+---
 
-| 误用 | 后果 | 正确做法 |
-|------|------|----------|
-| 把 **重量级 IO / 网络** 放进 `IMMEDIATELY` | 启动闪屏卡顿甚至 ANR | 下沉到 `NORMAL` / `BACKGROUND`，仅保留极轻量标记位 |
-| 假设 **DEFERRED** 一定在「首帧之后很快」执行 | 主线程一直忙时任务推迟 | 配置合理 `deferredTimeoutMillis`；关键路径不要依赖 DEFERRED |
-| `await` 超时当「初始化失败」 | 后台任务仍在跑，状态与业务假设不一致 | 把超时当 **未就绪**，UI 降级；日志对照 `getReport()` |
+## 集成前必读
 
-## 演示应用
+### 能力对照（失败、超时、DEFERRED）
 
-`demo` 可逐项验证报告、`await`、StartupStore 与四类优先级任务；矩阵见 [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)。
+| 项 | 说明 |
+|----|------|
+| **FailStrategy** | `CONTINUE`：单任务失败不挡后续。`ABORT_DEPENDENTS`：依赖链上依赖失败方则**跳过**（与 `InitResult.skipped` 等配合）。 |
+| **单任务 timeout** | 对 `BACKGROUND`、以及走执行器的 `SuspendInitializer` 等可强约束；**主线程阶段**的硬超时以日志/策略为主（无法像线程任务一样硬杀）。 |
+| **DEFERRED + `deferredTimeoutMillis`** | Idle 未在时限内排完时，**移除 IdleHandler 并在主线程把剩余项跑完**，避免永久饿死。 |
+| **建议手测** | 仓库 [demo](demo) 可对照；发版前看 **低内存、后台冷启动** 下报告与 `await`。 |
 
-## Advanced Usage
+### 常见误用
 
-### 完整类声明方式
+| 误用 | 后果 | 建议 |
+|------|------|------|
+| 大 IO/网络放进 `IMMEDIATELY` | 启动卡、ANR | 只放极轻量；重活 `NORMAL` / `BACKGROUND` |
+| 以为 DEFERRED 必「首帧后马上」 | 主线程一直忙时一直推迟 | 配好 `deferredTimeoutMillis`；关键路径不绑 DEFERRED |
+| `await` 超时当「全失败」 | 后台可能仍在跑 | 超时作**未就绪**；日志对齐 `getReport()` |
 
-继承 `StartupInitializer` 抽象类：
+---
+
+## 能力一览
+
+**调度**
+
+- 四级内置：`IMMEDIATELY` → `NORMAL` → `DEFERRED` → `BACKGROUND`；`InitPriority.Custom` 可带自定义 `Executor`
+- 同优先组内**依赖拓扑排序**；**环**与非法依赖在启动时校验
+- `DEFERRED`：在**第一次**主线程 `queueIdle` 中**按序跑完**本组（可配**超时**后于主线程继续执行未完成任务）
+- `BACKGROUND`：线程池 + `CountDownLatch` 等保证与依赖/失败策略一致
+- 默认池：**无界队列** + `AbortPolicy`（拒绝时**不**用 `CallerRunsPolicy` 把任务挤回**调用方线程**，避免在同步段误上主线程）
+
+**可靠性与可观测性**
+
+- 单任务失败**可**不阻断全链（`FailStrategy`）；**按初始化器**再覆写策略
+- **重试**、**超时**、**`enabled`** 条件执行、**`StartupStore` 产物流转**
+- **`onResult` / `onProgress`**、**`isInitialized`、报告与耗时、自定义 `StartupLogger`**
+- **`mainProcessOnly`、**`await(timeout)`** 等
+
+**开发体验**
+
+- **DSL**：`immediately` / `normal` / `deferred` / `background` 及 `suspend*`
+- **DSL 回调** `onCompleted` / `onFailed`；**类**继承 `StartupInitializer` / `SuspendInitializer`
+
+---
+
+## 与 AndroidX Startup 对比
+
+| 特性 | AndroidX Startup | aw-startup |
+|------|-----------------|-----------:|
+| 优先级分级 | 无 | 4 级 + Custom |
+| 依赖排序 | 有 | 有 |
+| 环检测 | 无 | 有 |
+| 后台/Idle/DSL/报告/失败策略/主进程/进度/重试/超时/Store/… | 无或弱 | 有（见上） |
+
+更细的逐项对比见历史说明；**迁移**见文末 [从 AndroidX Startup 迁移](#从-androidx-startup-迁移)。
+
+---
+
+## 演示
+
+仓库 **demo** 覆盖报告、`await`、`StartupStore`、多优先级等；手测项见 [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md)。
+
+---
+
+## 进阶与示例
+
+### 子类 + `register` / `start`
 
 ```kotlin
 class LoggerInit : StartupInitializer() {
     override val name = "Logger"
     override val priority = InitPriority.IMMEDIATELY
-    override fun onCreate(context: Context) {
-        AwLogger.init { debug = BuildConfig.DEBUG }
-    }
+    override fun onCreate(context: Context) { AwLogger.init { debug = BuildConfig.DEBUG } }
 }
 
-class NetworkInit : StartupInitializer() {
-    override val name = "Network"
-    override val priority = InitPriority.NORMAL
-    override val dependencies = listOf("Logger")
-    override val retryCount = 2
-    override val timeoutMillis = 5000
-    override fun onCreate(context: Context) {
-        AwNet.init(context)
-    }
-    override fun onFailed(error: Throwable) {
-        AwLogger.e("Network init failed", error)
-    }
-}
+// Application 中
+AwStartup.register(LoggerInit())
+AwStartup.register(/* … */)
+AwStartup.start(this)
 ```
 
-注册并启动：
+### 优先级与场景
 
-```kotlin
-class MyApp : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        AwStartup.register(LoggerInit())
-        AwStartup.register(NetworkInit())
-        AwStartup.start(this)
-    }
-}
-```
+| 优先级 | 执行时机 | 线程 | 典型 |
+|--------|----------|------|------|
+| `IMMEDIATELY` | 最早 | 主同步 | 日志、监控 |
+| `NORMAL` | 其后 | 主同步 | 网络、大库、图片 |
+| `DEFERRED` | Idle 组 | 主（Idle/超时兜底） | 非关键、可晚点 |
+| `BACKGROUND` | 组内并发 | 池 | 预热、重 IO |
+| `Custom` + `executor` | 自定义 | 该执行器 | 特殊队列 |
 
-### 优先级说明
+`Custom` 无 `executor` 时，按 `ordinal` 与内置档对齐，落在 SYNC / IDLE / CONCURRENT 之一（见 KDoc）。
 
-| 优先级 | 执行时机 | 线程 | 适用场景 |
-|--------|----------|------|----------|
-| `IMMEDIATELY` | 最先执行 | 主线程同步 | 崩溃收集、日志 |
-| `NORMAL` | IMMEDIATELY 之后 | 主线程同步 | 网络、图片、存储 |
-| `DEFERRED` | 主线程空闲后 | 主线程异步（IdleHandler） | 统计上报、推送 |
-| `BACKGROUND` | 子线程异步 | 后台线程池 | 缓存清理、数据预热 |
-| `Custom` | 自定义 | 自定义 Executor | 特殊调度需求 |
-
-### 自定义优先级
+### 自定义 `Custom(ordinal, executor?)`
 
 ```kotlin
 val ioPriority = InitPriority.Custom(5, Executors.newSingleThreadExecutor())
@@ -209,27 +186,17 @@ val ioPriority = InitPriority.Custom(5, Executors.newSingleThreadExecutor())
 class DbPreloadInit : StartupInitializer() {
     override val name = "DbPreload"
     override val priority = ioPriority
-    override fun onCreate(context: Context) { ... }
+    override fun onCreate(context: Context) { /* ... */ }
 }
 ```
 
-Custom 优先级的执行策略：
-- 若提供 `executor`，使用自定义执行器并发执行
-- 若未提供 `executor`，根据 `ordinal` 决定：
-  - `ordinal <= 1`（NORMAL 及以下）：主线程同步执行
-  - `ordinal <= 2`（DEFERRED）：IdleHandler 延迟执行
-  - `ordinal > 2`（BACKGROUND 及以上）：后台线程池并发执行
-
-### 协程初始化器
+### 协程 `SuspendInitializer`
 
 ```kotlin
 class DbInit : SuspendInitializer() {
     override val name = "Database"
     override val priority = InitPriority.BACKGROUND
-    override suspend fun onCreateSuspend(context: Context) {
-        val db = Room.databaseBuilder(context, AppDb::class.java, "app.db").build()
-        db.openHelper.writableDatabase
-    }
+    override suspend fun onCreateSuspend(context: Context) { /* ... */ }
 }
 ```
 
@@ -237,13 +204,11 @@ class DbInit : SuspendInitializer() {
 
 ```kotlin
 AwStartup.init(this) {
-    // 全局策略
     failStrategy(FailStrategy.ABORT_DEPENDENTS)
     immediately("Config") { loadConfig() }
     normal("Service", "Config") { initService() }
 }
 
-// 或初始化器级别策略
 class ServiceInit : StartupInitializer() {
     override val name = "Service"
     override val priority = InitPriority.NORMAL
@@ -253,29 +218,26 @@ class ServiceInit : StartupInitializer() {
 }
 ```
 
-### 重试与超时
+### 重试与全局/延后超时
 
 ```kotlin
-// 重试：失败后自动重试
 class NetworkInit : StartupInitializer() {
     override val name = "Network"
     override val priority = InitPriority.NORMAL
-    override val retryCount = 2  // 最多重试2次（共执行3次）
+    override val retryCount = 2
     override fun onCreate(context: Context) { AwNet.init(context) }
 }
 
-// 超时：单个初始化器超时
 class SlowInit : StartupInitializer() {
     override val name = "Slow"
     override val priority = InitPriority.BACKGROUND
-    override val timeoutMillis = 5000  // 5秒超时
+    override val timeoutMillis = 5000
     override fun onCreate(context: Context) { slowOperation() }
 }
 
-// 全局超时配置
 AwStartup.init(this) {
-    timeout(3000)              // 全局默认超时3秒
-    deferredTimeout(5000)      // DEFERRED 任务5秒后强制执行
+    timeout(3000)
+    deferredTimeout(5000)
 }
 ```
 
@@ -283,227 +245,126 @@ AwStartup.init(this) {
 
 ```kotlin
 AwStartup.init(this) {
-    immediately("Logger",
-        onCompleted = { Log.d("Startup", "Logger ready") }
-    ) { AwLogger.init() }
-
-    normal("Network",
-        "Logger",
-        onFailed = { Log.e("Startup", "Network failed", it) }
-    ) { AwNet.init(it) }
+    immediately("Logger", onCompleted = { Log.d("Startup", "Logger ready") }) { AwLogger.init() }
+    normal("Network", "Logger", onFailed = { Log.e("Startup", "Network failed", it) }) { AwNet.init(it) }
 }
 ```
 
-### 查询初始化器状态
-
-```kotlin
-if (AwStartup.isInitialized("Network")) {
-    // 网络已初始化，可以发起请求
-}
-```
-
-### 进度与总数
-
-`getReport().size` 为**当前已产出结果条数**（随 DEFERRED / BACKGROUND 推进而增加），
-`getTotalInitializerCount()` 为**本轮注册的计划总数**，二者相除可得到与 `onProgress` 一致的进度比例：
-
-```kotlin
-val done = AwStartup.getReport().size
-val total = AwStartup.getTotalInitializerCount()
-```
-
-### 等待后台任务完成
-
-```kotlin
-// 带超时（毫秒），返回是否在超时前完成
-val completed = AwStartup.await(3000)
-```
-
-### 主进程判断
-
-```kotlin
-// 仅主进程初始化
-AwStartup.init(this, mainProcessOnly = true) {
-    // ...
-}
-
-// 手动判断
-if (AwStartup.isMainProcess(this)) {
-    // 主进程
-}
-```
-
-### 高级配置
+### 高级 `init` 块
 
 ```kotlin
 AwStartup.init(this) {
-    backgroundThreads(4)                              // 自定义线程数，默认 CPU 核心数
-    executor(Executors.newFixedThreadPool(2))          // 自定义线程池
-    failStrategy(FailStrategy.ABORT_DEPENDENTS)        // 失败策略
-    timeout(3000)                                     // 全局默认超时
-    deferredTimeout(5000)                             // DEFERRED 超时保护
-    logger(true)                                      // 输出启动日志到 Logcat
-    onResult { result ->                              // 结果回调（主线程）
-        Log.d("Startup", "${result.name} ${result.costMillis}ms")
-    }
+    backgroundThreads(4)
+    executor(Executors.newFixedThreadPool(2))
+    failStrategy(FailStrategy.ABORT_DEPENDENTS)
+    timeout(3000)
+    deferredTimeout(5000)
+    logger(true)
+    onResult { r -> Log.d("Startup", "${r.name} ${r.costMillis}ms") }
 }
 ```
 
+### 其它速查
+
+- **状态**：`isInitialized(name)`  
+- **进度分母**：`getReport().size` 为**当前已出结果条**；`getTotalInitializerCount()` 为**计划总数**（与 `onProgress` 的 `total` 一致）  
+- **等后台**：`AwStartup.await(3000)`，勿在主线程死等无超时版（已标 `@Deprecated`）  
+- **主进程**：`AwStartup.isMainProcess(this)` 与 `init(..., mainProcessOnly = true)`  
+- **高级 `init` 块**：`backgroundThreads`、`executor`、`logger`、`onResult` 等见下文 **API 参考**
+
+---
+
 ## 架构设计
 
-### 执行流程
+### 执行流（简图）
 
 ```
-AwStartup.init/start
-    │
-    ▼
-Graph.validate()  ← 名称唯一性 / 依赖存在性 / 优先级一致性 / 无循环依赖
-    │
-    ▼
-Graph.getGroups() ← 全局拓扑排序（Kahn BFS）→ 按优先级 ordinal 分组
-    │
-    ▼
-StartupRunner.run()
-    ├── SYNC 组（IMMEDIATELY, NORMAL, Custom≤1）→ 主线程顺序执行
-    ├── IDLE 组（DEFERRED, Custom≤2）→ IdleHandler：每次主线程空闲回调至多执行 1 个任务（可配超时后批量强制执行）
-    └── CONCURRENT 组（BACKGROUND, Custom>2, Custom+executor）→ 线程池并发执行
+init / start
+  → Graph 校验（名唯一、依赖存在、优先级可执行、无环）
+  → 全局拓扑序 + 按优先级分组
+  → StartupRunner
+      SYNC  (IMMEDIATELY / NORMAL / 部分 Custom)     主线程顺序
+      IDLE  (DEFERRED / 部分 Custom)                 Idle，首段 idle 可跑完一组；可超时兜底
+      CONCURRENT (BACKGROUND / Custom+pool)          池内并发，依赖用 Future/join 等配合
 ```
 
-### 依赖排序
+### 依赖与复杂度
 
-使用 Kahn 算法（BFS）进行全局拓扑排序，时间复杂度 O(V+E)。循环依赖检测使用 DFS + 着色法。
+- 拓扑：Kahn（BFS），O(V+E)  
+- 环：DFS + 染色
 
 ### 线程安全
 
-- `results`、`completedNames`、`failedInitializers` 共享同一把锁
-- `StartupReport.results` 返回实时快照
-- `onResult` 回调保证在主线程执行
+- 结果用 `ConcurrentLinkedQueue` 等，多线程/Idle 下追加安全  
+- `getReport()` 为**快照**；未跑完时条数会小于 `getTotalInitializerCount()`  
+- `onResult`：在**主线程**调你的闭包（若内部在非主完成会先 post）
 
 ### ProGuard
 
-库已内置 `consumer-rules.pro`，无需额外配置。keep 规则保留 `StartupInitializer` 实现类及其方法，确保反射和 DSL 创建的匿名子类正常工作。
+库随 **AAR 带上 `consumer-rules.pro`**，一般**无需在宿主里再写一份**。会保留你继承的 `StartupInitializer` / `SuspendInitializer` 等；`internal` 包下报告、嵌套类名以 JVM 全名/ `$` 形式 keep。  
+若自带 `Executor`：需保证**拒绝策略**、**shutdown 时机**与 [FAQ 自定义池](#faq) 一致，否则会出现「不执行 / await 不结束」类问题。  
+**子类**若混淆，**勿混淆 `name` 串**（依赖名依赖此字符串）。
 
-## API
+---
 
-### AwStartup
+## API 参考
 
-| 方法 | 说明 |
-|------|------|
-| `init(context, block)` | DSL 方式初始化并启动（推荐） |
-| `init(context, mainProcessOnly, block)` | DSL 方式，可指定仅主进程初始化 |
-| `register(initializer)` | 手动注册初始化器 |
-| `register(block)` | DSL 方式注册初始化器，返回自身支持链式调用 |
-| `start(context)` | 启动初始化流程 |
-| `getReport()` | 获取初始化结果列表（实时快照） |
-| `getSyncCostMillis()` | 获取同步初始化耗时 |
-| `getTotalInitializerCount()` | 获取本轮注册的初始化器总数（与 `onProgress` 的 `total` 一致） |
-| `isInitialized(name)` | 查询初始化器是否已完成 |
-| `getStore()` | 获取初始化器间数据共享存储 |
-| `isStarted` | 是否已启动 |
-| `await()` | 无限等待所有后台任务完成（已废弃，建议使用带超时版本） |
-| `await(timeoutMillis)` | 带超时等待后台任务完成 |
-| `isMainProcess(context)` | 判断当前是否主进程 |
-| `reset()` | 重置状态（测试用） |
+### `AwStartup`
 
-### StartupConfig DSL
+| 方法 / 属性 | 说明 |
+|-------------|------|
+| `init` / `register` / `start` | 见上 |
+| `getReport` | 当前结果快照（含耗时等） |
+| `getSyncCostMillis` | 同步段耗时 |
+| `getTotalInitializerCount` | 与 `onProgress` 的 `total` 一致 |
+| `isInitialized` | 名是否已产出终态（成/败/跳） |
+| `getStore` | 各初始化器间共享数据 |
+| `isStarted` | 是否已 `start` |
+| `await(timeoutMs)` / `await()`（弃用） | 等 Idle+后台 完毕 |
+| `isMainProcess` | 主进程判断 |
+| `reset` | 主要给测试/特殊场景，清状态 + 等后台 + 关池 |
 
-| 方法 | 说明 |
-|------|------|
-| `add(initializer)` | 添加初始化器实例 |
-| `immediately(name, vararg deps, enabled, timeoutMillis, retryCount, onCompleted, onFailed, init)` | 快捷添加 IMMEDIATELY 初始化器 |
-| `normal(...)` | 快捷添加 NORMAL 初始化器 |
-| `deferred(...)` | 快捷添加 DEFERRED 初始化器 |
-| `background(...)` | 快捷添加 BACKGROUND 初始化器 |
-| `suspendImmediately(...)` | 快捷添加 IMMEDIATELY 协程初始化器 |
-| `suspendNormal(...)` | 快捷添加 NORMAL 协程初始化器 |
-| `suspendDeferred(...)` | 快捷添加 DEFERRED 协程初始化器 |
-| `suspendBackground(...)` | 快捷添加 BACKGROUND 协程初始化器 |
-| `onResult(callback)` | 设置结果回调 |
-| `onProgress(callback)` | 设置进度回调 |
-| `backgroundThreads(count)` | 设置后台线程数（默认 min(4, CPU核心数)） |
-| `executor(executorService)` | 设置自定义线程池 |
-| `failStrategy(strategy)` | 设置失败策略 |
-| `timeout(millis)` | 设置全局默认超时 |
-| `deferredTimeout(millis)` | 设置 DEFERRED 超时保护 |
-| `logger(enabled)` | 是否输出启动日志 |
-| `logger(startupLogger)` | 设置自定义日志实现 |
+### `StartupConfig`（DSL 块内）
 
-### StartupInitializer
+`immediately` / `normal` / `deferred` / `background`、对应 `suspend*`、`onResult` / `onProgress`、`backgroundThreads` / `executor`、`failStrategy`、`timeout` / `deferredTimeout`、`logger` 等 —— 同上文及 IDE 补全。
 
-| 属性/方法 | 说明 |
-|-----------|------|
-| `name` | 唯一标识，用于依赖引用和日志 |
-| `priority` | 初始化优先级 |
-| `dependencies` | 依赖的初始化器名称列表 |
-| `failStrategy` | 初始化器级别失败策略（可选，优先于全局） |
-| `timeoutMillis` | 超时时间（毫秒，0=不超时） |
-| `retryCount` | 重试次数（0=不重试） |
-| `enabled` | 是否启用（false 时跳过执行，视为已完成） |
-| `onCreate(context)` | 执行初始化逻辑 |
-| `onCompleted()` | 初始化成功回调（可选） |
-| `onFailed(error)` | 初始化失败回调（可选） |
+### `StartupInitializer` / `SuspendInitializer` / `InitResult` / `FailStrategy`
 
-### SuspendInitializer
+见源码 KDoc 与下表同名的「属性/方法」列（`name`、`priority`、`dependencies`、`failStrategy`、`timeoutMillis`、`retryCount`、`enabled`、`onCreate`、`onCreateSuspend`、…）。
 
-| 属性/方法 | 说明 |
-|-----------|------|
-| `onCreateSuspend(context)` | 协程初始化逻辑 |
-
-### InitResult
-
-| 属性 | 说明 |
-|------|------|
-| `name` | 初始化器名称 |
-| `priority` | 执行优先级 |
-| `costMillis` | 执行耗时（毫秒） |
-| `success` | 是否执行成功 |
-| `error` | 执行失败的异常 |
-| `skipped` | 是否因依赖失败或 disabled 而跳过 |
-
-### FailStrategy
-
-| 值 | 说明 |
-|----|------|
-| `CONTINUE` | 单个失败后继续执行（默认） |
-| `ABORT_DEPENDENTS` | 依赖失败者的任务跳过执行 |
+---
 
 ## 最佳实践
 
-1. **IMMEDIATELY** 仅用于最关键的初始化（崩溃收集、日志），避免耗时操作
-2. **NORMAL** 用于必须在首帧前完成的初始化（网络、图片库），控制总耗时
-3. **DEFERRED** 用于非关键初始化（统计、推送），配合 `deferredTimeout` 防止长期不执行
-4. **BACKGROUND** 用于耗时操作（缓存预热、数据库迁移），利用 `timeoutMillis` 防止卡死
-5. 使用 `mainProcessOnly = true` 避免子进程重复初始化
-6. 使用 `isInitialized()` 在业务代码中检查依赖是否就绪
-7. 使用 `retryCount` 为网络等不稳定初始化配置重试
-8. 使用初始化器级别 `failStrategy` 精细控制失败传播
-9. 使用 `enabled` 属性根据运行时条件控制初始化器是否执行
-10. 使用 `StartupStore` 在初始化器间传递初始化产物（如数据库实例）
-11. 使用 `StartupLogger` 自定义日志实现，便于 APM 监控
-12. 使用 `onProgress` 回调展示初始化进度
+1. `IMMEDIATELY` 尽量短；`NORMAL` 控制**同步段总**耗时。  
+2. `DEFERRED` 配 `deferredTimeout`；`BACKGROUND` 配 per-task/全局 `timeout` 防挂死。  
+3. 多进程用 `mainProcessOnly` + `isMainProcess` + `enabled`。  
+4. 强依赖用 `isInitialized` / Store；波动 IO 上 `retryCount`。  
+5. 大流量后台用**合适池与队列**，慎 `CallerRunsPolicy` 让重任务跑回主路径。
+
+---
 
 ## 从 AndroidX Startup 迁移
 
-### 1. 替换依赖
+**1. 依赖**
 
 ```kotlin
 // 移除
 implementation("androidx.startup:startup-runtime:1.1.1")
-
 // 添加
-implementation("com.github.answufeng:aw-startup:1.1.0")
+implementation("com.github.answufeng:aw-startup:1.0.0")
 ```
 
-### 2. 替换 Initializer
+**2. Initializer 写法**
 
 ```kotlin
-// AndroidX Startup
+// 旧：AndroidX Startup
 class LoggerInitializer : Initializer<Unit> {
     override fun create(context: Context) { AwLogger.init() }
-    override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()
+    override fun dependencies() = emptyList<Class<out Initializer<*>>>()
 }
 
-// aw-startup
+// 新：aw-startup
 class LoggerInit : StartupInitializer() {
     override val name = "Logger"
     override val priority = InitPriority.IMMEDIATELY
@@ -511,103 +372,51 @@ class LoggerInit : StartupInitializer() {
 }
 ```
 
-### 3. 替换 AndroidManifest 配置
-
-```xml
-<!-- 移除 -->
-<provider
-    android:name="androidx.startup.InitializationProvider"
-    android:authorities="${applicationId}.androidx-startup"
-    android:exported="false"
-    tools:node="merge">
-    <meta-data
-        android:name="com.example.LoggerInitializer"
-        android:value="androidx.startup" />
-</provider>
-```
+**3. 移除 `InitializationProvider` 等 AndroidX 清单配置，改在 `Application` 中：**
 
 ```kotlin
-// 改为在 Application.onCreate 中初始化
-class MyApp : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        AwStartup.init(this, mainProcessOnly = true) {
-            immediately("Logger") { AwLogger.init() }
-        }
-    }
+AwStartup.init(this, mainProcessOnly = true) {
+    immediately("Logger") { AwLogger.init() }
 }
 ```
 
-### 4. 依赖声明方式变更
+**4. 依赖从「类」改为「名」：**
 
 ```kotlin
-// AndroidX Startup — 类型依赖
-class NetworkInitializer : Initializer<Unit> {
-    override fun dependencies() = listOf(LoggerInitializer::class.java)
-}
-
-// aw-startup — 字符串名称依赖
 class NetworkInit : StartupInitializer() {
     override val name = "Network"
     override val dependencies = listOf("Logger")
+    override fun onCreate(context: Context) { }
 }
 ```
+
+---
 
 ## FAQ
 
-**Q: 超时控制对哪些优先级生效？**
-A: 超时强制取消对 `BACKGROUND` 和 `SuspendInitializer` 生效。对于 `IMMEDIATELY`、`NORMAL`、`DEFERRED`，超时后仅输出警告日志（主线程执行无法强制取消）。
+**Q: 超时在哪些阶段真正「能砍断」？**  
+A: 以 **BACKGROUND/池上跑的任务** 与 **可放到执行器上的 Suspend 路径** 为主；纯主线程块只能 warn + 策略，无法像取消 Future 一样硬停。
 
-**Q: DEFERRED 任务是一次性全跑完还是分散执行？**
-A: 默认在多次「主线程空闲」回调中逐个执行，减轻单段空闲内的连续工作量；若配置了 `deferredTimeoutMillis` 且超时仍有未执行任务，会移除 IdleHandler 并在主线程上依次强制执行剩余项。
+**Q: DEFERRED 是「多轮闲一下跑一个」还是「一轮跑完」？**  
+A: 与当前实现一致：**第一次**主线程 `queueIdle` 里**按序连续跑**本组；超时未跑完的由框架在主线程**接着跑完**（并移除后续 Idle 依赖）。
 
-**Q: BACKGROUND 任务依赖 NORMAL 任务时，是否需要额外配置？**
-A: 不需要。同步任务（IMMEDIATELY/NORMAL）在并发任务（BACKGROUND）提交前已全部完成，依赖关系由执行顺序隐式保证。
+**Q: `BACKGROUND` 依赖 `NORMAL` 要不要再写啥？**  
+A: 不用。提交后台任务**之前**所有 SYNC 已跑完。
 
-**Q: 如何在子进程中执行不同的初始化？**
-A: 使用 `enabled` 属性结合 `AwStartup.isMainProcess()` 判断：
-```kotlin
-AwStartup.init(this) {
-    immediately("Logger") { AwLogger.init() }
-    normal("Push", enabled = AwStartup.isMainProcess(this@MyApp)) { initPush() }
-}
-```
+**Q: 子进程、Store、自定义日志、不混淆 `name`？**  
+A: 子进程/Store/日志见上文**进阶**与 `StartupStore` / `StartupLogger`；混淆保留 **子类**与 **`name` 字面值**可解析。
 
-**Q: 如何在初始化器间传递数据？**
-A: 使用 `StartupStore`：
-```kotlin
-// 存储方
-immediately("Database") { ctx ->
-    val db = Room.databaseBuilder(ctx, AppDb::class.java, "app.db").build()
-    AwStartup.getStore().put("database", db)
-}
-// 获取方
-normal("Repository", "Database") { ctx ->
-    val db = AwStartup.getStore().get<RoomDatabase>("database")
-}
-```
+**Q: 为何弃用无参 `await()`？**  
+A: 可能**永久阻塞**；请用 `await(timeout)`。
 
-**Q: 如何自定义日志输出？**
-A: 实现 `StartupLogger` 接口并通过 `logger()` 配置：
-```kotlin
-AwStartup.init(this) {
-    logger(object : StartupLogger {
-        override fun d(tag: String, msg: String) { myLogger.d(tag, msg) }
-        override fun w(tag: String, msg: String, t: Throwable?) { myLogger.w(tag, msg, t) }
-        override fun e(tag: String, msg: String, t: Throwable?) { myLogger.e(tag, msg, t) }
-    })
-}
-```
+**Q: 自定义 `executor` 不执行或 `await` 永远不完？**  
+A: 队列满、**拒绝**、**已 shutdown** 等会按失败/结束路径处理；请检查容与拒绝策略、生命周期，或先用库**默认**池。  
 
-**Q: ProGuard 需要额外配置吗？**
-A: 不需要。库已内置 `consumer-rules.pro`，会自动保留 `StartupInitializer` 及其子类。如果你使用代码混淆，确保 `StartupInitializer` 子类的 `name` 属性不被混淆（因为它用于依赖引用）。
+**Q: ProGuard 要再加吗？**  
+A: 一般**不用**加；继承类勿混淆**名称依赖用字符串**的 `name`。
 
-**Q: 为什么 `await()` 被标记为废弃？**
-A: 无超时的 `await()` 可能永久阻塞线程。建议使用 `await(timeoutMillis)` 替代。
+---
 
-**Q: 自定义 `executor()` 后任务未执行且 `await` 一直不返回？**
-A: 若线程池队列满、拒绝策略抛错或 Executor 已 `shutdown`，提交会失败。库会将该初始化器记为失败并结束等待；请检查线程池容量、`RejectedExecutionHandler` 及生命周期，或改用库默认后台池。
+## 许可
 
-## 许可证
-
-Apache License 2.0，详见 [LICENSE](LICENSE)。
+Apache License 2.0，见 [LICENSE](LICENSE).
