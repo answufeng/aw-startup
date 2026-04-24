@@ -2,31 +2,15 @@
 
 [![JitPack](https://jitpack.io/v/answufeng/aw-startup.svg)](https://jitpack.io/#answufeng/aw-startup)
 
-> **aw-\*** 生态：同组织内另有多个传统 **View / XML** 向的基础库；本工程基线 **minSdk 24**、**JDK 17**（demo 验证 **compileSdk 35**）。
-
 在 `Application` 中集中管理应用启动阶段初始化：多优先级、**依赖有向图、拓扑排序、环检测**；支持主线程同步、**Idle 延后**、**后台池并发**、协程、失败策略与可观测性。
 
----
-
-## 目录
-
-| 想做的事 | 跳转 |
-|----------|------|
-| 一行依赖 + 最小示例 | [依赖与 Quick Start](#依赖与-quick-start) |
-| 发版/CI、Demo 手测 | [工程与发版](#工程与发版) |
-| 先读：失败、超时、DEFERRED 坑 | [集成前必读](#集成前必读) |
-| 全量能力说明 | [能力一览](#能力一览) |
-| 与 AndroidX Startup 区别 | [对比表](#与-androidx-startup-对比) |
-| 类/协程/DSL/迁移 | [进阶与示例](#进阶与示例) |
-| 执行流、并发、R8 | [架构与线程安全 / ProGuard](#架构设计) |
-| 表格式 API | [API 参考](#api-参考) |
-| 排错与细则 | [FAQ](#faq) |
+如果你只想最快接入并跑通第一个启动任务，直接看下面的「5 分钟上手」即可；其它内容都可以后置按需查阅。
 
 ---
 
-## 依赖与 Quick Start
+## 5 分钟上手（最小接入）
 
-### 依赖
+### 1) 添加依赖（JitPack）
 
 ```kotlin
 // settings.gradle.kts
@@ -44,13 +28,9 @@ dependencies {
 }
 ```
 
-### 三步接入
+`implementation` 中的 **版本号与 Git / JitPack 的 tag 一致**（上例为 `1.0.0`）。
 
-1. 添加上方依赖。  
-2. 在 `Application.onCreate` 中调用 `AwStartup.init`（主进程可 `mainProcessOnly = true`）。  
-3. 用 `getReport()` / `getSyncCostMillis()` 查看结果（可选 `logger(true)` 打全量报告）。
-
-**示例：**
+### 2) 在 `Application` 中初始化（DSL）
 
 ```kotlin
 class MyApp : Application() {
@@ -66,6 +46,8 @@ class MyApp : Application() {
 }
 ```
 
+### 3) 查看报告（可选）
+
 ```kotlin
 val report = AwStartup.getReport()
 report.forEach {
@@ -74,14 +56,33 @@ report.forEach {
 Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 ```
 
-### 工程与发版
+---
 
-| 项 | 说明 |
-|----|------|
-| CI | [`.github/workflows/ci.yml`](.github/workflows/ci.yml)：`assembleRelease`、`ktlintCheck`、`lintRelease`、`:demo:assembleRelease` |
-| 本地 | `./gradlew :aw-startup:assembleRelease :aw-startup:ktlintCheck :aw-startup:lintRelease :demo:assembleRelease` |
-| 演示 | [demo/DEMO_MATRIX.md](demo/DEMO_MATRIX.md) · 应用内 **「演示清单」** |
-| 发版前 | 搞清 **DEFERRED 超时** 与 **FailStrategy**；低内存、后台冷启动、多进程各手测一次 |
+## 目录（按常见需求跳转）
+
+| 想做什么 | 跳转到 |
+|----------|--------|
+| 最短时间跑通依赖与初始化 | [5 分钟上手（最小接入）](#5-分钟上手最小接入) · [环境要求](#环境要求) |
+| 发版/CI、本地构建、Demo 手测 | [本仓库与工程检查](#本仓库与工程检查) |
+| 先读：失败策略、超时、DEFERRED 坑 | [集成前必读](#集成前必读) |
+| 能力清单与适用场景 | [能力一览](#能力一览) |
+| 与 AndroidX Startup 区别 | [与 AndroidX Startup 对比](#与-androidx-startup-对比) |
+| DSL/子类/协程/迁移 | [进阶与示例](#进阶与示例) · [从 AndroidX Startup 迁移](#从-androidx-startup-迁移) |
+| 执行流、线程安全、R8 | [架构设计](#架构设计) |
+| 表格式 API | [API 参考](#api-参考) |
+| 排错与细则 | [FAQ](#faq) |
+
+---
+
+## 环境要求
+
+| 项目 | 最低版本 |
+|------|----------|
+| Kotlin | 2.0+（以仓库 Gradle 为准） |
+| Android minSdk | 24 |
+| Android compileSdk（demo 验证） | 35 |
+| JDK | 17 |
+| AGP / Gradle | 以仓库版本为准 |
 
 ---
 
