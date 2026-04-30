@@ -226,6 +226,7 @@ class NetworkInit : StartupInitializer() {
     override val name = "Network"
     override val priority = InitPriority.NORMAL
     override val retryCount = 2
+    override val retryIntervalMillis = 1000L // 重试间隔（毫秒），0 = 立即重试
     override fun onCreate(context: Context) { AwNet.init(context) }
 }
 
@@ -241,6 +242,21 @@ AwStartup.init(this) {
     deferredTimeout(5000)
 }
 ```
+
+DSL 中同样支持 `retryIntervalMillis`：
+
+```kotlin
+AwStartup.init(this) {
+    normal("Network", retryCount = 2, retryIntervalMillis = 1000L) { AwNet.init(it) }
+}
+```
+
+`InitResult.skipped` 为 `true` 时，可通过 `skipReason` 区分跳过原因：
+
+| `SkipReason` | 含义 |
+|---|---|
+| `DISABLED` | 初始化器 `enabled = false` |
+| `DEPENDENCY_FAILED` | 依赖的初始化器执行失败 |
 
 ### DSL 回调
 
@@ -331,7 +347,7 @@ init / start
 
 ### `StartupInitializer` / `SuspendInitializer` / `InitResult` / `FailStrategy`
 
-见源码 KDoc 与下表同名的「属性/方法」列（`name`、`priority`、`dependencies`、`failStrategy`、`timeoutMillis`、`retryCount`、`enabled`、`onCreate`、`onCreateSuspend`、…）。
+见源码 KDoc 与下表同名的「属性/方法」列（`name`、`priority`、`dependencies`、`failStrategy`、`timeoutMillis`、`retryCount`、`retryIntervalMillis`、`enabled`、`onCreate`、`onCreateSuspend`、…）。
 
 ---
 

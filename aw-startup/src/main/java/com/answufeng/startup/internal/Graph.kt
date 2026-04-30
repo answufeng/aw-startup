@@ -89,6 +89,19 @@ class Graph(
                         "初始化器 ${init.name}（${init.priority}）依赖了更低优先级的 ${depInit.name}（${depInit.priority}）"
                     )
                 }
+                if (init.priority is InitPriority.BACKGROUND && depInit.priority == InitPriority.DEFERRED) {
+                    throw IllegalStateException(
+                        "初始化器 ${init.name}（BACKGROUND）不能依赖 DEFERRED 优先级的 ${depInit.name}，" +
+                            "因为 DEFERRED 在主线程 IdleHandler 中执行，BACKGROUND 在线程池中执行，两者无法同步等待"
+                    )
+                }
+                val initPriority = init.priority
+                if (initPriority is InitPriority.Custom && initPriority.executor != null && depInit.priority == InitPriority.DEFERRED) {
+                    throw IllegalStateException(
+                        "初始化器 ${init.name}（Custom+executor）不能依赖 DEFERRED 优先级的 ${depInit.name}，" +
+                            "因为 DEFERRED 在主线程 IdleHandler 中执行，自定义 executor 在独立线程中执行，两者无法同步等待"
+                    )
+                }
             }
         }
     }

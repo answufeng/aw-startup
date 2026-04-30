@@ -77,7 +77,11 @@ class StartupReport(
         val sb = StringBuilder("=== AwStartup Report ===\n")
         sb.append("Sync cost: ${syncCostMillis}ms\n")
         for (r in snapshot) {
-            val status = if (r.success) "OK" else "FAIL: ${r.error?.message}"
+            val status = when {
+                r.skipped -> "SKIP(${r.skipReason})"
+                r.success -> "OK"
+                else -> "FAIL: ${r.error?.message}"
+            }
             sb.append("  ${r.name} [${r.priority}] ${r.costMillis}ms $status\n")
         }
         logger.d("AwStartup", sb.toString())

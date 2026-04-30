@@ -8,6 +8,7 @@ import com.answufeng.startup.StartupInitializer
 import com.answufeng.startup.FailStrategy
 import com.answufeng.startup.InitPriority
 import com.answufeng.startup.InitResult
+import com.answufeng.startup.SkipReason
 import com.answufeng.startup.StartupConfig
 import com.answufeng.startup.StartupLogger
 import com.answufeng.startup.SuspendInitializer
@@ -141,7 +142,10 @@ class StartupRunner(
     }
 
     private fun scheduleIdle(initializers: List<StartupInitializer>) {
-        val looper = Looper.myLooper() ?: throw IllegalStateException("DEFERRED 初始化必须在主线程调度")
+        val looper = Looper.myLooper()
+        check(looper == Looper.getMainLooper()) {
+            "DEFERRED 初始化必须在主线程调度（当前线程：${Thread.currentThread().name}）"
+        }
         val queue = looper.queue
         val index = java.util.concurrent.atomic.AtomicInteger(0)
         val size = initializers.size
@@ -225,7 +229,8 @@ class StartupRunner(
         if (!init.enabled) {
             val r = InitResult(
                 init.name, init.priority, 0, false,
-                skipped = true
+                skipped = true,
+                skipReason = SkipReason.DISABLED
             )
             report.addResult(r)
             notifyResult(r)
@@ -241,7 +246,8 @@ class StartupRunner(
                 val r = InitResult(
                     init.name, init.priority, 0, false,
                     IllegalStateException("依赖的初始化器失败，跳过执行"),
-                    skipped = true
+                    skipped = true,
+                    skipReason = SkipReason.DEPENDENCY_FAILED
                 )
                 report.addResult(r)
                 failedInitializers.add(init.name)
@@ -304,10 +310,15 @@ class StartupRunner(
             } catch (e: Exception) {
                 lastError = e
                 if (attempt < maxRetries) {
+                    val interval = init.retryIntervalMillis
                     log.w(
                         "AwStartup",
-                        "初始化器 ${init.name} 第${attempt + 1}次执行失败，准备重试"
+                        "初始化器 ${init.name} 第${attempt + 1}次执行失败，准备重试" +
+                                if (interval > 0) "（${interval}ms 后）" else ""
                     )
+                    if (interval > 0) {
+                        Thread.sleep(interval)
+                    }
                 }
             }
         }
@@ -343,7 +354,12 @@ class StartupRunner(
                     }
                 }, "aw-startup-suspend-${init.name}")
                 worker.start()
-                worker.join()
+                val joinTimeout = if (timeoutMillis > 0) timeoutMillis else 60_000L
+                worker.join(joinTimeout)
+                if (worker.isAlive) {
+                    worker.interrupt()
+                    log.w("AwStartup", "初始化器 ${init.name} 的挂起执行线程在 ${joinTimeout}ms 后未完成，已中断")
+                }
                 thrown?.let { throw it }
             } else {
                 runBlocking { run() }

@@ -55,6 +55,9 @@ abstract class StartupInitializer {
     /** 失败后最大重试次数。0 表示不重试。 */
     open val retryCount: Int = 0
 
+    /** 重试间隔（毫秒）。0 表示立即重试。仅当 [retryCount] > 0 时生效。 */
+    open val retryIntervalMillis: Long = 0
+
     /**
      * 是否启用此初始化器。为 false 时跳过执行，但视为已完成（依赖此初始化器的任务不会阻塞）。
      * 可用于根据运行时条件（如 BuildConfig、远程配置）动态控制初始化。

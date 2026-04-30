@@ -200,6 +200,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -211,6 +212,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -237,6 +239,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -248,6 +251,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -274,6 +278,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -285,6 +290,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -311,6 +317,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
@@ -322,6 +329,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override fun onCreate(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -346,6 +354,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -357,6 +366,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -381,6 +391,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -392,6 +403,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -416,6 +428,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -427,6 +440,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
@@ -451,6 +465,7 @@ class StartupConfig {
         enabled: Boolean = true,
         timeoutMillis: Long = 0,
         retryCount: Int = 0,
+        retryIntervalMillis: Long = 0,
         onCompleted: () -> Unit = {},
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
@@ -462,6 +477,7 @@ class StartupConfig {
             override val enabled = enabled
             override val timeoutMillis = timeoutMillis
             override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
             override suspend fun onCreateSuspend(context: Context) = init(context)
             override fun onCompleted() = onCompleted()
             override fun onFailed(error: Throwable) = onFailed(error)
