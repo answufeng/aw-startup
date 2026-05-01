@@ -27,11 +27,16 @@ class Graph(
 
     private val sortedGroups: List<PriorityGroup> by lazy {
         val allSorted = topologicalSortAll()
+        fun bucketKey(p: InitPriority): Pair<Int, Int> = when (p) {
+            is InitPriority.Custom -> p.ordinal to System.identityHashCode(p)
+            else -> p.ordinal to 0
+        }
         allSorted
-            .groupBy { it.priority }
+            .groupBy { bucketKey(it.priority) }
             .entries
-            .sortedBy { it.key.ordinal }
-            .map { (priority, inits) -> PriorityGroup(priority, inits) }
+            .sortedWith(compareBy<Map.Entry<Pair<Int, Int>, List<StartupInitializer>>> { it.key.first }
+                .thenBy { it.key.second })
+            .map { (_, inits) -> PriorityGroup(inits.first().priority, inits) }
     }
 
     /**

@@ -147,7 +147,6 @@ class StartupRunner(
             "DEFERRED 初始化必须在主线程调度（当前线程：${Thread.currentThread().name}）"
         }
         val queue = looper.queue
-        val index = java.util.concurrent.atomic.AtomicInteger(0)
         val size = initializers.size
         val deferredTimeout = config?.deferredTimeoutMillis ?: 0L
         val idleLatch = CountDownLatch(size)
@@ -163,31 +162,37 @@ class StartupRunner(
 
         // Use a mutable reference to hold the idleHandler so timeoutRunnable can access it
         val idleHandlerRef = arrayOfNulls<MessageQueue.IdleHandler>(1)
-        
-        val timeoutRunnable = Runnable {
-            val left = size - index.get()
-            if (left > 0) {
-                log.w(
-                    "AwStartup",
-                    "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
-                )
-                idleHandlerRef[0]?.let { queue.removeIdleHandler(it) }
-                var i = index.getAndIncrement()
-                while (i < size) {
-                    runIdleInitializer(initializers[i])
-                    i = index.getAndIncrement()
+        val timeoutRunnableRef = arrayOfNulls<Runnable>(1)
+
+        val drainLock = Any()
+        var nextIndex = 0
+
+        fun drainRemaining(reason: String) {
+            synchronized(drainLock) {
+                if (nextIndex >= size) return
+                val left = size - nextIndex
+                if (reason == "timeout") {
+                    log.w(
+                        "AwStartup",
+                        "DEFERRED 任务超时（${deferredTimeout}ms），还有 $left 个未执行，强制执行"
+                    )
                 }
+                idleHandlerRef[0]?.let { queue.removeIdleHandler(it) }
+                while (nextIndex < size) {
+                    runIdleInitializer(initializers[nextIndex++])
+                }
+                timeoutRunnableRef[0]?.let { mainHandler.removeCallbacks(it) }
             }
         }
 
+        val timeoutRunnable = Runnable {
+            drainRemaining("timeout")
+        }
+        timeoutRunnableRef[0] = timeoutRunnable
+
         val idleHandler = object : MessageQueue.IdleHandler {
             override fun queueIdle(): Boolean {
-                var i = index.getAndIncrement()
-                while (i < size) {
-                    runIdleInitializer(initializers[i])
-                    i = index.getAndIncrement()
-                }
-                mainHandler.removeCallbacks(timeoutRunnable)
+                drainRemaining("idle")
                 return false
             }
         }
@@ -317,7 +322,15 @@ class StartupRunner(
                                 if (interval > 0) "（${interval}ms 后）" else ""
                     )
                     if (interval > 0) {
-                        Thread.sleep(interval)
+                        if (Looper.myLooper() == Looper.getMainLooper()) {
+                            log.w(
+                                "AwStartup",
+                                "初始化器 ${init.name} 在主线程重试：已跳过 Thread.sleep($interval)，" +
+                                    "避免阻塞 UI；请将重试初始化移出 IMMEDIATELY/NORMAL，或置 retryIntervalMillis=0"
+                            )
+                        } else {
+                            Thread.sleep(interval)
+                        }
                     }
                 }
             }

@@ -17,6 +17,11 @@ class StartupReport(
     private val logger: StartupLogger = StartupLogger.DEFAULT
 ) {
 
+    companion object {
+        /** [awaitBackground] 无参版本使用的默认最长等待，避免永久阻塞。 */
+        const val DEFAULT_AWAIT_BACKGROUND_TIMEOUT_MS: Long = 120_000L
+    }
+
     private val _results = ConcurrentLinkedQueue<InitResult>()
     private val _completedNames = ConcurrentHashMap.newKeySet<String>()
 
@@ -42,10 +47,11 @@ class StartupReport(
     /**
      * 等待 DEFERRED（Idle 队列）与 BACKGROUND 线程池任务全部结束。
      * 不包含已在 [StartupRunner.run] 返回前完成的同步阶段（IMMEDIATELY / NORMAL）。
+     *
+     * 内部调用带超时的重载，超时为 [DEFAULT_AWAIT_BACKGROUND_TIMEOUT_MS]，避免无上限阻塞。
      */
     fun awaitBackground() {
-        idleLatch?.await()
-        backgroundLatch?.await()
+        awaitBackground(DEFAULT_AWAIT_BACKGROUND_TIMEOUT_MS)
     }
 
     /**
@@ -55,7 +61,8 @@ class StartupReport(
      */
     fun awaitBackground(timeoutMillis: Long): Boolean {
         if (timeoutMillis <= 0L) {
-            awaitBackground()
+            idleLatch?.await()
+            backgroundLatch?.await()
             return true
         }
         val deadlineNs = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)

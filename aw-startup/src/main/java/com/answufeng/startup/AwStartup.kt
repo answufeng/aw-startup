@@ -38,6 +38,7 @@ object AwStartup {
     private var report: StartupReport? = null
     @Volatile
     private var config: StartupConfig? = null
+    @Volatile
     private var runner: StartupRunner? = null
     private val store = StartupStore()
 
@@ -71,8 +72,8 @@ object AwStartup {
             return
         }
         val cfg = StartupConfig().apply(block)
-        config = cfg
         synchronized(initializers) {
+            config = cfg
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
             for (init in cfg.initializers) {
                 require(initializers.none { it.name == init.name }) {
