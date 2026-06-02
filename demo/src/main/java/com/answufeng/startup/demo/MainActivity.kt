@@ -1,240 +1,172 @@
 package com.answufeng.startup.demo
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
+import android.text.method.ScrollingMovementMethod
+import android.view.View
+import android.widget.ScrollView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import androidx.core.widget.doAfterTextChanged
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.answufeng.startup.AwStartup
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    private val logs = ArrayList<LogItem>()
-    private lateinit var logAdapter: LogAdapter
-
-    private lateinit var tvSubhead: android.widget.TextView
-    private lateinit var tvProgress: android.widget.TextView
+    private lateinit var tvSyncCost: TextView
+    private lateinit var tvTotalCount: TextView
+    private lateinit var tvCompleted: TextView
     private lateinit var progress: LinearProgressIndicator
     private lateinit var etAwaitTimeout: TextInputEditText
+    private lateinit var tvLog: TextView
 
-    private var awaitTimeoutMs: Long = 3000
+    private var awaitTimeoutMs: Long = 3000L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        setupViews()
+        refreshAll()
+        appendLog("应用已就绪，同步耗时: ${AwStartup.getSyncCostMillis()}ms")
+    }
+
+    private fun setupViews() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        tvSubhead = findViewById(R.id.tvSubhead)
-        tvProgress = findViewById(R.id.tvProgress)
+        tvSyncCost = findViewById(R.id.tvSyncCost)
+        tvTotalCount = findViewById(R.id.tvTotalCount)
+        tvCompleted = findViewById(R.id.tvCompleted)
         progress = findViewById(R.id.progress)
         etAwaitTimeout = findViewById(R.id.etAwaitTimeout)
+        tvLog = findViewById(R.id.tvLog)
+        tvLog.movementMethod = ScrollingMovementMethod()
 
-        setupLogs()
-        setupActions()
-        refreshHeader()
-
-        pushLog("App ready")
-        pushLog("Sync cost: ${AwStartup.getSyncCostMillis()} ms")
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.demo_main_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
-        R.id.action_demo_playbook -> {
-            MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.demo_playbook_title)
-                .setMessage(R.string.demo_playbook_message)
-                .setPositiveButton(android.R.string.ok, null)
-                .show()
-            true
+        findViewById<MaterialButton>(R.id.btnRefresh).setOnClickListener {
+            refreshAll()
+            appendLog("状态已刷新")
         }
-        else -> super.onOptionsItemSelected(item)
-    }
 
-    private fun setupLogs() {
-        logAdapter = LogAdapter(logs)
-        val rv = findViewById<RecyclerView>(R.id.rvLog)
-        rv.layoutManager = LinearLayoutManager(this)
-        rv.adapter = logAdapter
-        rv.itemAnimator = null
-    }
+        findViewById<MaterialButton>(R.id.btnReport).setOnClickListener { showReport() }
+        findViewById<MaterialButton>(R.id.btnAwait).setOnClickListener { awaitBackground() }
+        findViewById<MaterialButton>(R.id.btnCheckInit).setOnClickListener { checkAllInitializers() }
+        findViewById<MaterialButton>(R.id.btnStore).setOnClickListener { showStore() }
+        findViewById<MaterialButton>(R.id.btnClearLog).setOnClickListener { clearLog() }
 
-    private fun setupActions() {
-        findViewById<android.view.View>(R.id.btnReport).setOnClickListener { showReport() }
-        findViewById<android.view.View>(R.id.btnAwait).setOnClickListener { awaitBackground() }
-        findViewById<android.view.View>(R.id.btnIsInitialized).setOnClickListener { checkInitialized() }
-        findViewById<android.view.View>(R.id.btnStore).setOnClickListener { showStore() }
-        findViewById<android.view.View>(R.id.btnClearLog).setOnClickListener { clearLog() }
-        findViewById<android.view.View>(R.id.btnCopyLog).setOnClickListener { copyLogs() }
-        findViewById<android.view.View>(R.id.btnShareLog).setOnClickListener { shareLogs() }
-
-        etAwaitTimeout.doAfterTextChanged {
-            awaitTimeoutMs = it?.toString()?.trim()?.toLongOrNull() ?: 3000L
+        etAwaitTimeout.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                awaitTimeoutMs = etAwaitTimeout.text?.toString()?.trim()?.toLongOrNull() ?: 3000L
+            }
         }
     }
 
-    private fun refreshHeader() {
-        tvSubhead.text = "Sync cost: ${AwStartup.getSyncCostMillis()} ms"
+    private fun refreshAll() {
         val report = AwStartup.getReport()
         val total = report.size
-        val completed = report.count { it.success || it.skipped || it.error != null }
+        val completed = report.count { it.success || it.skipped }
+
+        tvSyncCost.text = "${AwStartup.getSyncCostMillis()}ms"
+        tvTotalCount.text = total.toString()
+        tvCompleted.text = completed.toString()
+
         val ratio = if (total == 0) 0 else (completed * 100 / total)
         progress.progress = ratio
-        tvProgress.text = "Progress: $completed/$total"
-    }
-
-    private fun pushLog(msg: String, level: LogLevel = LogLevel.INFO) {
-        logs.add(LogItem(now(), level, msg))
-        logAdapter.notifyItemInserted(max(0, logs.size - 1))
-        findViewById<RecyclerView>(R.id.rvLog).scrollToPosition(max(0, logs.size - 1))
     }
 
     private fun showReport() {
         val report = AwStartup.getReport()
-        refreshHeader()
-        pushLog("Startup report (${report.size} tasks):", LogLevel.SECTION)
-        pushLog("  Sync cost: ${AwStartup.getSyncCostMillis()} ms")
+        val sb = StringBuilder()
+        sb.appendLine("同步耗时: ${AwStartup.getSyncCostMillis()}ms")
+        sb.appendLine("共 ${report.size} 个初始化器")
+        sb.appendLine("---")
         report.forEach { r ->
             val status = when {
-                r.skipped -> "SKIPPED: ${r.error?.message}"
+                r.skipped -> "跳过 (${r.skipReason})"
                 r.success -> "OK"
-                else -> "FAIL: ${r.error?.message}"
+                else -> "失败: ${r.error?.message}"
             }
-            val lvl = when {
-                r.success -> LogLevel.SUCCESS
-                r.skipped -> LogLevel.WARNING
-                else -> LogLevel.ERROR
-            }
-            pushLog("  ${r.name} [${r.priority}] ${r.costMillis} ms $status", lvl)
+            sb.appendLine("${r.name} [${r.priority}] ${r.costMillis}ms $status")
         }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("启动报告")
+            .setMessage(sb.toString())
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun awaitBackground() {
         val timeout = max(100L, awaitTimeoutMs)
-        pushLog("Await background tasks (timeout=${timeout}ms)...", LogLevel.ACTION)
-        Thread {
+        appendLog("等待后台任务完成 (超时: ${timeout}ms)...")
+        findViewById<MaterialButton>(R.id.btnAwait).isEnabled = false
+
+        thread {
             val completed = AwStartup.await(timeout)
             runOnUiThread {
+                findViewById<MaterialButton>(R.id.btnAwait).isEnabled = true
                 if (completed) {
-                    pushLog("All background tasks completed.", LogLevel.SUCCESS)
+                    appendLog("后台任务全部完成")
                 } else {
-                    pushLog("Background tasks timeout.", LogLevel.ERROR)
+                    appendLog("后台任务超时 ($timeout ms)")
                 }
-                showReport()
+                refreshAll()
             }
-        }.start()
+        }
     }
 
-    private fun checkInitialized() {
-        refreshHeader()
-        pushLog("Initializer states:", LogLevel.SECTION)
-        val names = listOf("Logger", "Network", "Config", "Analytics", "CacheCleaner", "DbPreload", "Firebase", "Database")
+    private fun checkAllInitializers() {
+        val names = listOf(
+            "Logger", "Network", "Config", "Analytics",
+            "CacheCleaner", "DbPreload", "Firebase", "Database"
+        )
+        val sb = StringBuilder()
         names.forEach { name ->
-            val initialized = AwStartup.isInitialized(name)
-            val status = if (initialized) "DONE" else "PENDING"
-            pushLog("  $name: $status", if (initialized) LogLevel.SUCCESS else LogLevel.INFO)
+            val done = AwStartup.isInitialized(name)
+            sb.appendLine("$name: ${if (done) "✓ 已完成" else "… 等待中"}")
         }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("初始器状态")
+            .setMessage(sb.toString())
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun showStore() {
         val store = AwStartup.getStore()
-        refreshHeader()
-        pushLog("StartupStore:", LogLevel.SECTION)
-        pushLog("  networkReady: ${store.get<Boolean>("networkReady")}")
-        pushLog("  dbPreloaded: ${store.get<Boolean>("dbPreloaded")}")
-        pushLog("  database: ${store.get<String>("database")}")
+        val sb = StringBuilder()
+        val keys = listOf("networkReady", "dbPreloaded", "database")
+        keys.forEach { key ->
+            val value = store.get<Any>(key)
+            sb.appendLine("$key = $value")
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("共享存储 (StartupStore)")
+            .setMessage(sb.toString())
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun appendLog(msg: String) {
+        tvLog.append("[${simpleTime()}] $msg\n")
+        tvLog.post {
+            (tvLog.parent.parent as? ScrollView)?.fullScroll(View.FOCUS_DOWN)
+        }
     }
 
     private fun clearLog() {
-        logs.clear()
-        logAdapter.notifyDataSetChanged()
-        pushLog("Logs cleared.", LogLevel.ACTION)
+        tvLog.text = ""
     }
 
-    private fun copyLogs() {
-        val text = buildLogsText()
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("AwStartup logs", text))
-        pushLog("Copied logs to clipboard.", LogLevel.ACTION)
-    }
-
-    private fun shareLogs() {
-        val text = buildLogsText()
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "AwStartup Demo logs")
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        startActivity(Intent.createChooser(intent, "Share logs"))
-    }
-
-    private fun buildLogsText(): String {
-        return logs.joinToString(separator = "\n") { item ->
-            "${item.time} ${item.level.name}: ${item.msg}"
-        }
-    }
-
-    private fun now(): String {
-        return SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
-    }
-}
-
-private enum class LogLevel { SECTION, ACTION, INFO, SUCCESS, WARNING, ERROR }
-
-private data class LogItem(
-    val time: String,
-    val level: LogLevel,
-    val msg: String,
-)
-
-private class LogAdapter(
-    private val items: List<LogItem>,
-) : RecyclerView.Adapter<LogAdapter.VH>() {
-
-    class VH(itemView: android.view.View) : RecyclerView.ViewHolder(itemView) {
-        val tvMeta: android.widget.TextView = itemView.findViewById(R.id.tvMeta)
-        val tvMsg: android.widget.TextView = itemView.findViewById(R.id.tvMsg)
-    }
-
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): VH {
-        val view = android.view.LayoutInflater.from(parent.context).inflate(R.layout.item_log, parent, false)
-        return VH(view)
-    }
-
-    override fun getItemCount(): Int = items.size
-
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = items[position]
-        holder.tvMeta.text = "${item.time} • ${item.level.name}"
-        holder.tvMsg.text = item.msg
-
-        val color = when (item.level) {
-            LogLevel.SECTION -> R.color.ds_text
-            LogLevel.ACTION -> R.color.ds_primary
-            LogLevel.INFO -> R.color.ds_text
-            LogLevel.SUCCESS -> R.color.ds_success
-            LogLevel.WARNING -> R.color.ds_warning
-            LogLevel.ERROR -> R.color.ds_error
-        }
-        holder.tvMsg.setTextColor(androidx.core.content.ContextCompat.getColor(holder.itemView.context, color))
-    }
+    private fun simpleTime(): String =
+        SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
 }

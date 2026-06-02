@@ -1,15 +1,12 @@
 package com.answufeng.startup.internal
-
 import com.answufeng.startup.InitPriority
 import com.answufeng.startup.StartupInitializer
 import java.util.LinkedHashMap
 import java.util.TreeSet
-
 data class PriorityGroup(
     val priority: InitPriority,
     val initializers: List<StartupInitializer>
 )
-
 /**
  * 初始化器依赖图，负责拓扑排序和校验。
  *
@@ -24,21 +21,15 @@ class Graph(
     private val nameMap: Map<String, StartupInitializer> by lazy {
         initializers.associateBy { it.name }
     }
-
     private val sortedGroups: List<PriorityGroup> by lazy {
         val allSorted = topologicalSortAll()
-        fun bucketKey(p: InitPriority): Pair<Int, Int> = when (p) {
-            is InitPriority.Custom -> p.ordinal to System.identityHashCode(p)
-            else -> p.ordinal to 0
-        }
+        fun bucketKey(p: InitPriority): Int = p.ordinal
         allSorted
             .groupBy { bucketKey(it.priority) }
             .entries
-            .sortedWith(compareBy<Map.Entry<Pair<Int, Int>, List<StartupInitializer>>> { it.key.first }
-                .thenBy { it.key.second })
+            .sortedBy { it.key }
             .map { (_, inits) -> PriorityGroup(inits.first().priority, inits) }
     }
-
     /**
      * 校验依赖图的合法性。
      *
@@ -53,9 +44,7 @@ class Graph(
         validatePriorityConsistency()
         validateNoCircularDependencies()
     }
-
     fun getGroups(): List<PriorityGroup> = sortedGroups
-
     /**
      * 获取指定优先级的拓扑排序结果。
      *
@@ -63,7 +52,6 @@ class Graph(
      */
     fun getSorted(priority: InitPriority): List<StartupInitializer> =
         sortedGroups.find { it.priority == priority }?.initializers ?: emptyList()
-
     private fun validateUniqueNames() {
         val seen = mutableSetOf<String>()
         for (init in initializers) {
@@ -72,7 +60,6 @@ class Graph(
             }
         }
     }
-
     private fun validateDependenciesExist() {
         for (init in initializers) {
             for (dep in init.dependencies) {
@@ -84,7 +71,6 @@ class Graph(
             }
         }
     }
-
     private fun validatePriorityConsistency() {
         for (init in initializers) {
             for (dep in init.dependencies) {
@@ -110,11 +96,9 @@ class Graph(
             }
         }
     }
-
     private fun validateNoCircularDependencies() {
         val visited = mutableSetOf<String>()
         val inStack = mutableSetOf<String>()
-
         fun dfs(name: String): Boolean {
             visited.add(name)
             inStack.add(name)
@@ -126,7 +110,6 @@ class Graph(
             inStack.remove(name)
             return true
         }
-
         for (init in initializers) {
             if (init.name !in visited) {
                 if (!dfs(init.name)) {
@@ -135,22 +118,17 @@ class Graph(
             }
         }
     }
-
     private fun topologicalSortAll(): List<StartupInitializer> {
         if (initializers.size <= 1) return initializers
-
         val nameToIndex: Map<String, Int> =
             initializers.mapIndexed { index, init -> init.name to index }.toMap()
         val cmp = compareBy<String> { nameToIndex[it]!! }
-
         val inDegree = LinkedHashMap<String, Int>()
         val adj = LinkedHashMap<String, MutableList<String>>()
-
         for (init in initializers) {
             inDegree[init.name] = 0
             adj[init.name] = mutableListOf()
         }
-
         for (init in initializers) {
             for (dep in init.dependencies) {
                 if (dep in nameMap) {
@@ -159,12 +137,10 @@ class Graph(
                 }
             }
         }
-
         val ready = TreeSet(cmp)
         for ((name, degree) in inDegree) {
             if (degree == 0) ready.add(name)
         }
-
         val result = mutableListOf<StartupInitializer>()
         while (ready.isNotEmpty()) {
             val current = ready.pollFirst()
@@ -176,7 +152,6 @@ class Graph(
                 }
             }
         }
-
         return result
     }
 }

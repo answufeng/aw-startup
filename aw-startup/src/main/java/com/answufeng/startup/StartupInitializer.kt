@@ -81,9 +81,3 @@ abstract class StartupInitializer {
 /**
  * 已废弃：使用 [StartupInitializer] 替代。
  */
-@Deprecated(
-    message = "Use StartupInitializer instead",
-    replaceWith = ReplaceWith("StartupInitializer", "com.answufeng.startup.StartupInitializer"),
-    level = DeprecationLevel.WARNING
-)
-typealias AppInitializer = StartupInitializer

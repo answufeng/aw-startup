@@ -71,6 +71,39 @@ class StartupConfig {
     internal var deferredTimeoutExplicit: Boolean = false
 
     /**
+     * 合并另一个 [StartupConfig] 的配置（仅覆盖显式设置的值）。
+     */
+    internal fun mergeFrom(other: StartupConfig) {
+        other.resultCallback?.let { resultCallback = it }
+        other.progressCallback?.let { progressCallback = it }
+        if (other.loggerExplicit) {
+            logger = other.logger
+            loggerExplicit = true
+        }
+        other.startupLogger?.let { startupLogger = it }
+        if (other.backgroundThreadCountExplicit) {
+            backgroundThreadCount = other.backgroundThreadCount
+            backgroundThreadCountExplicit = true
+        }
+        if (other.customExecutorExplicit) {
+            customExecutor = other.customExecutor
+            customExecutorExplicit = true
+        }
+        if (other.failStrategyExplicit) {
+            failStrategy = other.failStrategy
+            failStrategyExplicit = true
+        }
+        if (other.defaultTimeoutExplicit) {
+            defaultTimeoutMillis = other.defaultTimeoutMillis
+            defaultTimeoutExplicit = true
+        }
+        if (other.deferredTimeoutExplicit) {
+            deferredTimeoutMillis = other.deferredTimeoutMillis
+            deferredTimeoutExplicit = true
+        }
+    }
+
+    /**
      * 添加自定义初始化器实例。
      *
      * @param initializer 初始化器实例
@@ -194,6 +227,59 @@ class StartupConfig {
      * @param onFailed      失败回调
      * @param init          初始化逻辑
      */
+
+    private fun addDslInitializer(
+        name: String,
+        priority: InitPriority,
+        deps: Array<out String>,
+        enabled: Boolean,
+        timeoutMillis: Long,
+        retryCount: Int,
+        retryIntervalMillis: Long,
+        onCompleted: () -> Unit,
+        onFailed: (Throwable) -> Unit,
+        init: (Context) -> Unit
+    ) {
+        initializers.add(object : StartupInitializer() {
+            override val name = name
+            override val priority = priority
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
+            override fun onCreate(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
+    private fun addDslSuspendInitializer(
+        name: String,
+        priority: InitPriority,
+        deps: Array<out String>,
+        enabled: Boolean,
+        timeoutMillis: Long,
+        retryCount: Int,
+        retryIntervalMillis: Long,
+        onCompleted: () -> Unit,
+        onFailed: (Throwable) -> Unit,
+        init: suspend (Context) -> Unit
+    ) {
+        initializers.add(object : SuspendInitializer() {
+            override val name = name
+            override val priority = priority
+            override val dependencies = deps.toList()
+            override val enabled = enabled
+            override val timeoutMillis = timeoutMillis
+            override val retryCount = retryCount
+            override val retryIntervalMillis = retryIntervalMillis
+            override suspend fun onCreateSuspend(context: Context) = init(context)
+            override fun onCompleted() = onCompleted()
+            override fun onFailed(error: Throwable) = onFailed(error)
+        })
+    }
+
     fun immediately(
         name: String,
         vararg deps: String,
@@ -205,34 +291,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : StartupInitializer() {
-            override val name = name
-            override val priority = InitPriority.IMMEDIATELY
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override fun onCreate(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslInitializer(name, InitPriority.IMMEDIATELY, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加 NORMAL 优先级初始化器（同步，主线程，在 IMMEDIATELY 之后执行）。
-     *
-     * 适用于需要在 Application.onCreate 中完成但非核心的初始化（如网络框架）。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          初始化逻辑
-     */
     fun normal(
         name: String,
         vararg deps: String,
@@ -244,34 +305,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : StartupInitializer() {
-            override val name = name
-            override val priority = InitPriority.NORMAL
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override fun onCreate(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslInitializer(name, InitPriority.NORMAL, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加 DEFERRED 优先级初始化器（同步，主线程，在首屏渲染后执行）。
-     *
-     * 适用于非紧急初始化（如统计 SDK），延迟执行可加快首屏显示速度。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          初始化逻辑
-     */
     fun deferred(
         name: String,
         vararg deps: String,
@@ -283,34 +319,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : StartupInitializer() {
-            override val name = name
-            override val priority = InitPriority.DEFERRED
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override fun onCreate(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslInitializer(name, InitPriority.DEFERRED, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加 BACKGROUND 优先级初始化器（异步，后台线程池执行）。
-     *
-     * 适用于耗时操作（如数据库预热、缓存清理），不阻塞主线程。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          初始化逻辑
-     */
     fun background(
         name: String,
         vararg deps: String,
@@ -322,32 +333,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: (Context) -> Unit
     ) {
-        add(object : StartupInitializer() {
-            override val name = name
-            override val priority = InitPriority.BACKGROUND
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override fun onCreate(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslInitializer(name, InitPriority.BACKGROUND, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加挂起版本的 IMMEDIATELY 优先级初始化器。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          挂起初始化逻辑
-     */
     fun suspendImmediately(
         name: String,
         vararg deps: String,
@@ -359,32 +347,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendInitializer() {
-            override val name = name
-            override val priority = InitPriority.IMMEDIATELY
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override suspend fun onCreateSuspend(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslSuspendInitializer(name, InitPriority.IMMEDIATELY, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加挂起版本的 NORMAL 优先级初始化器。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          挂起初始化逻辑
-     */
     fun suspendNormal(
         name: String,
         vararg deps: String,
@@ -396,32 +361,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendInitializer() {
-            override val name = name
-            override val priority = InitPriority.NORMAL
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override suspend fun onCreateSuspend(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslSuspendInitializer(name, InitPriority.NORMAL, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加挂起版本的 DEFERRED 优先级初始化器。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          挂起初始化逻辑
-     */
     fun suspendDeferred(
         name: String,
         vararg deps: String,
@@ -433,32 +375,9 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendInitializer() {
-            override val name = name
-            override val priority = InitPriority.DEFERRED
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override suspend fun onCreateSuspend(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslSuspendInitializer(name, InitPriority.DEFERRED, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 
-    /**
-     * 添加挂起版本的 BACKGROUND 优先级初始化器。
-     *
-     * @param name          初始化器唯一名称
-     * @param deps          依赖的初始化器名称
-     * @param enabled       是否启用，默认 true
-     * @param timeoutMillis 超时时间（毫秒），0 表示不超时
-     * @param retryCount    失败重试次数，0 表示不重试
-     * @param onCompleted   成功回调
-     * @param onFailed      失败回调
-     * @param init          挂起初始化逻辑
-     */
     fun suspendBackground(
         name: String,
         vararg deps: String,
@@ -470,17 +389,6 @@ class StartupConfig {
         onFailed: (Throwable) -> Unit = {},
         init: suspend (Context) -> Unit
     ) {
-        add(object : SuspendInitializer() {
-            override val name = name
-            override val priority = InitPriority.BACKGROUND
-            override val dependencies = deps.toList()
-            override val enabled = enabled
-            override val timeoutMillis = timeoutMillis
-            override val retryCount = retryCount
-            override val retryIntervalMillis = retryIntervalMillis
-            override suspend fun onCreateSuspend(context: Context) = init(context)
-            override fun onCompleted() = onCompleted()
-            override fun onFailed(error: Throwable) = onFailed(error)
-        })
+        addDslSuspendInitializer(name, InitPriority.BACKGROUND, deps, enabled, timeoutMillis, retryCount, retryIntervalMillis, onCompleted, onFailed, init)
     }
 }

@@ -18,7 +18,7 @@
             android:background="@color/ds_bg"
             app:title="AwStartup Demo"
             app:titleTextColor="@color/ds_text"
-            app:subtitle="Startup report • progress • store"
+            app:subtitle="启动初始化 · 优先级 · 依赖图 · 拓扑排序"
             app:subtitleTextColor="@color/ds_text_muted" />
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -34,6 +34,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- 启动概览 Card -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AwStartupDemo.Card"
                 android:layout_width="match_parent"
@@ -48,43 +49,109 @@
                     android:padding="16dp">
 
                     <TextView
-                        android:id="@+id/tvHeadline"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Startup status"
+                        android:text="启动概览"
                         android:textColor="@color/ds_text"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/tvSubhead"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Sync cost: -- ms"
-                        android:textColor="@color/ds_text_muted"
-                        android:textSize="13sp" />
+                        android:layout_marginTop="16dp"
+                        android:orientation="horizontal"
+                        android:weightSum="3">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvSyncCost"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/ds_primary"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="同步耗时"
+                                android:textColor="@color/ds_text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvTotalCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/ds_text"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="初始化器"
+                                android:textColor="@color/ds_text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvCompleted"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/ds_success"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="已完成"
+                                android:textColor="@color/ds_text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
 
                     <com.google.android.material.progressindicator.LinearProgressIndicator
                         android:id="@+id/progress"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
+                        android:layout_height="6dp"
+                        android:layout_marginTop="16dp"
                         android:indeterminate="false"
                         app:indicatorColor="@color/ds_primary"
-                        app:trackColor="@color/ds_surface_variant" />
-
-                    <TextView
-                        android:id="@+id/tvProgress"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Progress: --/--"
-                        android:textColor="@color/ds_text_muted"
-                        android:textSize="13sp" />
+                        app:trackColor="@color/ds_surface_variant"
+                        app:trackThickness="6dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- 操作 Card -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AwStartupDemo.Card"
                 android:layout_width="match_parent"
@@ -101,60 +168,77 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Actions"
+                        android:text="操作"
                         android:textColor="@color/ds_text"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        app:hintEnabled="true"
-                        android:hint="Await timeout (ms)">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etAwaitTimeout"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="3000" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAwait"
+                        android:id="@+id/btnRefresh"
                         style="@style/Widget.AwStartupDemo.Button"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Await background tasks" />
+                        android:text="刷新状态" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnReport"
-                        style="@style/Widget.AwStartupDemo.Button"
+                        style="@style/Widget.AwStartupDemo.Button.Outlined"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Show startup report" />
+                        android:layout_marginTop="8dp"
+                        android:text="查看启动报告" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:hint="超时(ms)"
+                            android:theme="@style/Theme.AwStartupDemo"
+                            app:hintEnabled="true"
+                            app:boxStrokeColor="@color/ds_primary">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etAwaitTimeout"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number"
+                                android:text="3000" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAwait"
+                            style="@style/Widget.AwStartupDemo.Button.Outlined"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:text="等待后台" />
+                    </LinearLayout>
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnIsInitialized"
-                        style="@style/Widget.AwStartupDemo.Button"
+                        android:id="@+id/btnCheckInit"
+                        style="@style/Widget.AwStartupDemo.Button.Outlined"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Check initializer states" />
+                        android:layout_marginTop="8dp"
+                        android:text="查看初始器状态" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnStore"
-                        style="@style/Widget.AwStartupDemo.Button"
+                        style="@style/Widget.AwStartupDemo.Button.Outlined"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Show StartupStore data" />
+                        android:layout_marginTop="8dp"
+                        android:text="查看共享存储" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- 运行日志 Card -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AwStartupDemo.Card"
                 android:layout_width="match_parent"
@@ -176,47 +260,36 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Logs"
+                            android:text="运行日志"
                             android:textColor="@color/ds_text"
                             android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnCopyLog"
-                            style="@style/Widget.AwStartupDemo.Button"
+                            android:id="@+id/btnClearLog"
+                            style="@style/Widget.AwStartupDemo.Button.Small"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Copy" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnShareLog"
-                            style="@style/Widget.AwStartupDemo.Button"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="Share" />
+                            android:text="清空" />
                     </LinearLayout>
 
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rvLog"
+                    <ScrollView
                         android:layout_width="match_parent"
-                        android:layout_height="320dp"
+                        android:layout_height="280dp"
                         android:layout_marginTop="12dp"
                         android:background="@color/ds_surface_variant"
-                        android:clipToPadding="false"
-                        android:padding="12dp" />
+                        android:padding="12dp"
+                        android:scrollbars="vertical">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnClearLog"
-                        style="@style/Widget.AwStartupDemo.Button"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Clear logs"
-                        app:backgroundTint="@color/ds_surface_variant"
-                        app:strokeColor="@color/ds_divider"
-                        app:strokeWidth="1dp"
-                        android:textColor="@color/ds_text" />
+                        <TextView
+                            android:id="@+id/tvLog"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:lineSpacingExtra="4dp"
+                            android:textColor="@color/ds_text"
+                            android:textSize="12sp" />
+                    </ScrollView>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

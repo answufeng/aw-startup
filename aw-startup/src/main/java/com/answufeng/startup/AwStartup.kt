@@ -39,6 +39,8 @@ object AwStartup {
     @Volatile
     private var config: StartupConfig? = null
     @Volatile
+    private var totalInitializerCount: Int = 0
+    @Volatile
     private var runner: StartupRunner? = null
     private val store = StartupStore()
 
@@ -73,8 +75,8 @@ object AwStartup {
         }
         val cfg = StartupConfig().apply(block)
         synchronized(initializers) {
-            config = cfg
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
+            config = cfg
             for (init in cfg.initializers) {
                 require(initializers.none { it.name == init.name }) {
                     "初始化器名称重复：${init.name}"
@@ -92,7 +94,7 @@ object AwStartup {
      * @throws IllegalStateException 如果已经启动
      * @throws IllegalArgumentException 如果名称重复
      */
-    fun register(initializer: StartupInitializer) {
+    fun register(initializer: StartupInitializer): AwStartup {
         synchronized(initializers) {
             check(!started.get()) { "AwStartup 已启动，不能再注册初始化器" }
             require(initializers.none { it.name == initializer.name }) {
@@ -100,6 +102,7 @@ object AwStartup {
             }
             initializers.add(initializer)
         }
+        return this
     }
 
     /**
@@ -120,36 +123,7 @@ object AwStartup {
             if (config == null) {
                 config = cfg
             } else {
-                val existing = config!!
-                cfg.resultCallback?.let { existing.resultCallback = it }
-                cfg.progressCallback?.let { existing.progressCallback = it }
-                if (cfg.loggerExplicit) {
-                    existing.logger = cfg.logger
-                    existing.loggerExplicit = true
-                }
-                cfg.startupLogger?.let {
-                    existing.startupLogger = it
-                }
-                if (cfg.backgroundThreadCountExplicit) {
-                    existing.backgroundThreadCount = cfg.backgroundThreadCount
-                    existing.backgroundThreadCountExplicit = true
-                }
-                if (cfg.customExecutorExplicit) {
-                    existing.customExecutor = cfg.customExecutor
-                    existing.customExecutorExplicit = true
-                }
-                if (cfg.failStrategyExplicit) {
-                    existing.failStrategy = cfg.failStrategy
-                    existing.failStrategyExplicit = true
-                }
-                if (cfg.defaultTimeoutExplicit) {
-                    existing.defaultTimeoutMillis = cfg.defaultTimeoutMillis
-                    existing.defaultTimeoutExplicit = true
-                }
-                if (cfg.deferredTimeoutExplicit) {
-                    existing.deferredTimeoutMillis = cfg.deferredTimeoutMillis
-                    existing.deferredTimeoutExplicit = true
-                }
+                config!!.mergeFrom(cfg)
             }
             for (init in cfg.initializers) {
                 require(initializers.none { it.name == init.name }) {
@@ -169,8 +143,9 @@ object AwStartup {
      */
     @MainThread
     fun start(context: Context) {
-        check(started.compareAndSet(false, true)) { "AwStartup already started" }
+        check(started.compareAndSet(false, true)) { "AwStartup 已经启动" }
 
+        totalInitializerCount = initializers.size
         val appContext = context.applicationContext
         val graph = Graph(initializers.toList())
         graph.validate()
@@ -197,6 +172,14 @@ object AwStartup {
      * @return 是否已完成（包括成功、失败、跳过）
      */
     fun isInitialized(name: String): Boolean = report?.isInitialized(name) ?: false
+
+    /**
+     * 获取注册的初始化器总数。
+     *
+     * 包含全部已注册的初始化器（不论 [StartupInitializer.enabled] 是否为 true）。
+     * 与 [StartupConfig.onProgress] 回调的 total 参数一致。
+     */
+    fun getTotalInitializerCount(): Int = totalInitializerCount
 
     /**
      * 获取初始化器间数据共享存储。

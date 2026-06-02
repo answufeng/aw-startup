@@ -1,6 +1,5 @@
 # aw-startup consumer ProGuard rules
 
-# ===========================================================
 # StartupInitializer and SuspendInitializer
 # ===========================================================
 
@@ -23,7 +22,6 @@
     kotlin.coroutines.jvm.internal.Continuation onCreateSuspend(android.content.Context, kotlin.coroutines.jvm.internal.Continuation);
 }
 
-# ===========================================================
 # Data classes and enums
 # ===========================================================
 
@@ -36,7 +34,6 @@
 -keep class com.answufeng.startup.InitPriority$Custom { *; }
 -keep class com.answufeng.startup.InitPriority$* { *; }
 
-# ===========================================================
 # Public API classes
 # ===========================================================
 
@@ -49,27 +46,19 @@
 -keep class com.answufeng.startup.StartupStore { *; }
 -keep class com.answufeng.startup.StartupStore$* { *; }
 
--keep class com.answufeng.startup.StartupReport { *; }
--keep class com.answufeng.startup.StartupReport$* { *; }
 
 -keep interface com.answufeng.startup.StartupLogger { *; }
 
 -keep class com.answufeng.startup.SuspendInitializer { *; }
 -keep class com.answufeng.startup.SuspendInitializer$* { *; }
 
-# ===========================================================
 # DslMarker annotation
 # ===========================================================
 
 -keep class com.answufeng.startup.AwStartupDsl { *; }
 
-# ===========================================================
-# Internal classes (for stack traces and error messages)
-# ===========================================================
 
--keep class com.answufeng.startup.internal.StartupThreadFactory { *; }
 
-# ===========================================================
 # Kotlin metadata (avoid duplication with proguard-rules.pro)
 # ===========================================================
 

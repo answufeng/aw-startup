@@ -43,13 +43,3 @@ abstract class SuspendInitializer : StartupInitializer() {
         runBlocking { onCreateSuspend(context) }
     }
 }
-
-/**
- * 已废弃：使用 [SuspendInitializer] 替代。
- */
-@Deprecated(
-    message = "Use SuspendInitializer instead",
-    replaceWith = ReplaceWith("SuspendInitializer", "com.answufeng.startup.SuspendInitializer"),
-    level = DeprecationLevel.WARNING
-)
-typealias SuspendAppInitializer = SuspendInitializer

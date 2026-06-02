@@ -24,11 +24,11 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.answufeng:aw-startup:1.0.0")
+    implementation("com.github.answufeng:aw-startup:1.0.1")
 }
 ```
 
-`implementation` 中的 **版本号与 Git / JitPack 的 tag 一致**（上例为 `1.0.0`）。
+`implementation` 中的 **版本号与 Git / JitPack 的 tag 一致**（上例为 `1.0.1`）。
 
 ### 2) 在 `Application` 中初始化（DSL）
 
@@ -67,7 +67,7 @@ Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 | 先读：失败策略、超时、DEFERRED 坑 | [集成前必读](#集成前必读) |
 | 能力清单与适用场景 | [能力一览](#能力一览) |
 | 与 AndroidX Startup 区别 | [与 AndroidX Startup 对比](#与-androidx-startup-对比) |
-| DSL/子类/协程/迁移 | [进阶与示例](#进阶与示例) · [从 AndroidX Startup 迁移](#从-androidx-startup-迁移) |
+| DSL/子类/协程 | [进阶与示例](#进阶与示例) |
 | 执行流、线程安全、R8 | [架构设计](#架构设计) |
 | 表格式 API | [API 参考](#api-参考) |
 | 排错与细则 | [FAQ](#faq) |
@@ -140,7 +140,7 @@ Log.d("Startup", "同步总耗时: ${AwStartup.getSyncCostMillis()}ms")
 | 环检测 | 无 | 有 |
 | 后台/Idle/DSL/报告/失败策略/主进程/进度/重试/超时/Store/… | 无或弱 | 有（见上） |
 
-更细的逐项对比见历史说明；**迁移**见文末 [从 AndroidX Startup 迁移](#从-androidx-startup-迁移)。
+更细的逐项对比见上文能力对照。
 
 ---
 
@@ -167,7 +167,15 @@ AwStartup.register(/* … */)
 AwStartup.start(this)
 ```
 
-### 优先级与场景
+
+### `init` vs `register` 的区别
+
+| 方法 | 适用场景 |
+|------|----------|
+| `AwStartup.init(this) { ... }` | 一站式：注册 + 校验 + 启动，适合全部初始化器在 `Application.onCreate()` 中集中定义的场景。 |
+| `AwStartup.register { ... }.start(this)` | 分步式：允许跨模块各自贡献初始化器（如 SDK AAR 在自身初始化块中注册），最后统一 `start`。可多次调用 `register`。 |
+
+若初始化器来自多个模块/三方库，使用 `register` 分步注入；若全部集中在一个 `Application` 子类，使用 `init` 更简洁。
 
 | 优先级 | 执行时机 | 线程 | 典型 |
 |--------|----------|------|------|
@@ -361,53 +369,6 @@ init / start
 
 ---
 
-## 从 AndroidX Startup 迁移
-
-**1. 依赖**
-
-```kotlin
-// 移除
-implementation("androidx.startup:startup-runtime:1.1.1")
-// 添加
-implementation("com.github.answufeng:aw-startup:1.0.0")
-```
-
-**2. Initializer 写法**
-
-```kotlin
-// 旧：AndroidX Startup
-class LoggerInitializer : Initializer<Unit> {
-    override fun create(context: Context) { AwLogger.init() }
-    override fun dependencies() = emptyList<Class<out Initializer<*>>>()
-}
-
-// 新：aw-startup
-class LoggerInit : StartupInitializer() {
-    override val name = "Logger"
-    override val priority = InitPriority.IMMEDIATELY
-    override fun onCreate(context: Context) { AwLogger.init() }
-}
-```
-
-**3. 移除 `InitializationProvider` 等 AndroidX 清单配置，改在 `Application` 中：**
-
-```kotlin
-AwStartup.init(this, mainProcessOnly = true) {
-    immediately("Logger") { AwLogger.init() }
-}
-```
-
-**4. 依赖从「类」改为「名」：**
-
-```kotlin
-class NetworkInit : StartupInitializer() {
-    override val name = "Network"
-    override val dependencies = listOf("Logger")
-    override fun onCreate(context: Context) { }
-}
-```
-
----
 
 ## FAQ
 

@@ -372,6 +372,7 @@ class StartupRunner(
                 if (worker.isAlive) {
                     worker.interrupt()
                     log.w("AwStartup", "初始化器 ${init.name} 的挂起执行线程在 ${joinTimeout}ms 后未完成，已中断")
+                    throw TimeoutException("初始化器 ${init.name} 执行超时（${joinTimeout}ms）")
                 }
                 thrown?.let { throw it }
             } else {
